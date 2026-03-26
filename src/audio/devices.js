@@ -12,10 +12,23 @@ export async function listOutputDevices() {
   return IS_WIN ? listOutputDevicesWindows() : listOutputDevicesMac();
 }
 
-// Combined: returns { input: [...], output: [...] }
+// Check if ffmpeg is available
+export function checkFfmpeg() {
+  return new Promise((resolve) => {
+    const proc = spawn("ffmpeg", ["-version"], { stdio: ["pipe", "pipe", "pipe"] });
+    proc.on("error", () => resolve(false));
+    proc.on("close", (code) => resolve(code === 0));
+  });
+}
+
+// Combined: returns { input: [...], output: [...], ffmpegAvailable: bool }
 export async function listAllDevices() {
+  const ffmpegAvailable = await checkFfmpeg();
+  if (!ffmpegAvailable) {
+    return { input: [], output: [], ffmpegAvailable: false };
+  }
   const [input, output] = await Promise.all([listInputDevices(), listOutputDevices()]);
-  return { input, output };
+  return { input, output, ffmpegAvailable: true };
 }
 
 // ─── macOS ───────────────────────────────────────────────
@@ -112,8 +125,15 @@ function listInputDevicesWindows() {
       stderr += data.toString();
     });
 
+    ffmpeg.on("error", (err) => {
+      console.error("[devices] ffmpeg spawn error:", err.message);
+      resolve([]);
+    });
     ffmpeg.on("close", () => {
-      resolve(parseDshow(stderr));
+      console.log("[devices] ffmpeg dshow raw output:\n" + stderr);
+      const devices = parseDshow(stderr);
+      console.log("[devices] parsed devices:", devices);
+      resolve(devices);
     });
   });
 }
@@ -156,11 +176,10 @@ function parseDshow(stderr) {
     if (inAudioSection && line.includes("DirectShow video devices")) {
       break;
     }
-    if (inAudioSection) {
-      // Match device name: [dshow @ ...] "Device Name" (audio)
+    if (inAudioSection && !line.includes("Alternative name")) {
+      // Match device name: [dshow @ ...] "Device Name"
       const match = line.match(/"(.+?)"/);
       if (match) {
-        // On Windows, dshow uses device name (not index) for capture
         devices.push({
           index: index,
           name: match[1],

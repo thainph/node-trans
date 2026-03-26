@@ -10,6 +10,7 @@ export default function SettingsTab({ active }) {
   const [micDeviceIndex, setMicDeviceIndex] = useState("");
   const [systemDeviceIndex, setSystemDeviceIndex] = useState("");
   const [devices, setDevices] = useState([]);
+  const [ffmpegAvailable, setFfmpegAvailable] = useState(true);
   const [saveStatus, setSaveStatus] = useState("");
 
   useEffect(() => {
@@ -17,6 +18,7 @@ export default function SettingsTab({ active }) {
 
     Promise.all([fetchSettings(), fetchDevices()]).then(([settings, devData]) => {
       setDevices(devData.input || []);
+      setFfmpegAvailable(devData.ffmpegAvailable !== false);
       setAudioSource(settings.audioSource || "mic");
       setTargetLanguage(settings.targetLanguage || "vi");
       setMicDeviceIndex(settings.micDeviceIndex != null ? String(settings.micDeviceIndex) : "");
@@ -41,6 +43,18 @@ export default function SettingsTab({ active }) {
 
   return (
     <div className="py-2 space-y-5">
+      {!ffmpegAvailable && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
+          <strong>ffmpeg not found.</strong> Install ffmpeg and add it to PATH to use audio features.
+          <br />
+          <span className="text-xs opacity-75">Windows: download from ffmpeg.org, extract, and add the bin folder to system PATH.</span>
+        </div>
+      )}
+      {ffmpegAvailable && devices.length === 0 && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-4 py-3 text-sm text-yellow-400">
+          No audio devices detected. Make sure your audio drivers are installed.
+        </div>
+      )}
       <div>
         <label className="block text-xs text-gray-400 dark:text-gray-600 mb-1.5 font-medium uppercase tracking-wider">
           Audio Source:
