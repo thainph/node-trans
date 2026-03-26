@@ -8,7 +8,7 @@ Hỗ trợ **macOS** và **Windows**.
 
 ## Yêu cầu
 
-- **Node.js** >= 18
+- **Node.js** >= 20
 - **ffmpeg**
 - **Soniox API Key** (đăng ký tại [soniox.com](https://soniox.com))
 
@@ -38,9 +38,8 @@ echo "SONIOX_API_KEY=your_api_key_here" > .env
 # Production
 npm start
 
-# Development (chạy server + client riêng)
-npm run dev:server   # Terminal 1
-npm run dev:client   # Terminal 2
+# Development (chạy server + client đồng thời)
+npm run dev
 ```
 
 - Production: mở `http://localhost:3000`
@@ -71,10 +70,12 @@ App tự detect BlackHole để capture.
 1. Tải **VB-CABLE** (free) từ [vb-audio.com/Cable](https://vb-audio.com/Cable/)
 2. Cài đặt và restart máy
 3. Vào **Sound Settings → Output** → chọn **CABLE Input** làm output
-4. App tự detect "CABLE Output" trong danh sách input devices
+4. Trong app, vào **Settings** → **Audio Source** chọn "System Audio" hoặc "Both"
+5. Chọn **CABLE Output (VB-Audio Virtual Cable)** trong dropdown **System Audio Device**
 
 Hoặc enable **Stereo Mix** trong Sound Settings (nếu sound card hỗ trợ):
 - Vào **Sound Settings → Recording** → chuột phải → **Show Disabled Devices** → enable **Stereo Mix**
+- Trong app, chọn Stereo Mix làm System Audio Device
 
 ## Sử dụng
 
@@ -104,6 +105,7 @@ Mỗi speaker được phân biệt bằng màu sắc riêng. Nội dung gốc v
 |---------|-------|
 | Audio Source | Microphone / System Audio / Both |
 | Microphone Device | Chọn microphone (từ danh sách input devices) |
+| System Audio Device | Chọn device để capture system audio (VB-CABLE, Stereo Mix...). Hiện khi chọn System Audio hoặc Both |
 | Target Language | Ngôn ngữ dịch (mặc định: Tiếng Việt) |
 
 ## Tech Stack
@@ -114,7 +116,7 @@ Mỗi speaker được phân biệt bằng màu sắc riêng. Nội dung gốc v
 | Backend | Node.js, Express 5, Socket.IO |
 | Audio | ffmpeg (avfoundation trên macOS, dshow trên Windows) |
 | Speech-to-Text | Soniox API (realtime translation) |
-| Database | SQLite (better-sqlite3) |
+| Database | SQLite (sql.js — pure JavaScript, không cần native build tools) |
 
 ## Cấu trúc project
 

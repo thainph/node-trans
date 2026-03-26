@@ -8,7 +8,7 @@ Supports **macOS** and **Windows**.
 
 ## Requirements
 
-- **Node.js** >= 18
+- **Node.js** >= 20
 - **ffmpeg**
 - **Soniox API Key** (sign up at [soniox.com](https://soniox.com))
 
@@ -38,9 +38,8 @@ echo "SONIOX_API_KEY=your_api_key_here" > .env
 # Production
 npm start
 
-# Development (run server + client separately)
-npm run dev:server   # Terminal 1
-npm run dev:client   # Terminal 2
+# Development (run server + client concurrently)
+npm run dev
 ```
 
 - Production: open `http://localhost:3000`
@@ -71,10 +70,12 @@ The app auto-detects BlackHole for capture.
 1. Download **VB-CABLE** (free) from [vb-audio.com/Cable](https://vb-audio.com/Cable/)
 2. Install and restart your computer
 3. Go to **Sound Settings → Output** → select **CABLE Input** as output device
-4. The app auto-detects "CABLE Output" in the input device list
+4. In the app, go to **Settings** → set **Audio Source** to "System Audio" or "Both"
+5. Select **CABLE Output (VB-Audio Virtual Cable)** in the **System Audio Device** dropdown
 
 Alternatively, enable **Stereo Mix** in Sound Settings (if your sound card supports it):
 - Go to **Sound Settings → Recording** → right-click → **Show Disabled Devices** → enable **Stereo Mix**
+- In the app, select Stereo Mix as the System Audio Device
 
 ## Usage
 
@@ -104,6 +105,7 @@ Each speaker is distinguished by a unique color. Original text and translations 
 |---------|-------------|
 | Audio Source | Microphone / System Audio / Both |
 | Microphone Device | Select microphone (from input device list) |
+| System Audio Device | Select device for system audio capture (VB-CABLE, Stereo Mix, etc.). Shown when Audio Source is System Audio or Both |
 | Target Language | Translation language (default: Vietnamese) |
 
 ## Tech Stack
@@ -114,7 +116,7 @@ Each speaker is distinguished by a unique color. Original text and translations 
 | Backend | Node.js, Express 5, Socket.IO |
 | Audio | ffmpeg (avfoundation on macOS, dshow on Windows) |
 | Speech-to-Text | Soniox API (realtime translation) |
-| Database | SQLite (better-sqlite3) |
+| Database | SQLite (sql.js — pure JavaScript, no native build tools required) |
 
 ## Project Structure
 
