@@ -12,7 +12,7 @@ function formatDuration(startedAt, endedAt) {
   return mins > 0 ? `${mins}m${secs}s` : `${secs}s`;
 }
 
-function SidebarItem({ session, isActive, isSelected, selectMode, checked, onToggleCheck, onClick }) {
+function SidebarItem({ session, isActive, isSelected, disabled, selectMode, checked, onToggleCheck, onClick }) {
   const startDate = new Date(session.started_at + "Z");
   const date = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const time = startDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
@@ -22,12 +22,16 @@ function SidebarItem({ session, isActive, isSelected, selectMode, checked, onTog
 
   return (
     <div
-      className={`px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 mb-1 border flex items-center gap-2 ${
+      className={`px-3 py-2.5 rounded-xl transition-all duration-200 mb-1 border flex items-center gap-2 ${
+        disabled
+          ? "opacity-40 cursor-not-allowed"
+          : "cursor-pointer"
+      } ${
         isSelected
           ? "bg-indigo-500/10 dark:bg-indigo-500/15 border-indigo-500/30 dark:border-indigo-500/20"
-          : "bg-transparent border-transparent hover:bg-gray-100/60 dark:hover:bg-white/5"
+          : `bg-transparent border-transparent ${!disabled ? "hover:bg-gray-100/60 dark:hover:bg-white/5" : ""}`
       }`}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
     >
       {selectMode && (
         <input
@@ -252,6 +256,7 @@ export default function Sidebar() {
                 session={s}
                 isActive={currentSessionId === s.id}
                 isSelected={selectedSessionId === s.id}
+                disabled={isListening && currentSessionId !== s.id}
                 selectMode={selectMode}
                 checked={checkedIds.has(s.id)}
                 onToggleCheck={handleToggleCheck}
