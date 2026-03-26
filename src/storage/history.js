@@ -115,6 +115,11 @@ export function endSession(sessionId) {
   run("UPDATE sessions SET ended_at = datetime('now') WHERE id = ?", [sessionId]);
 }
 
+export function reopenSession(sessionId) {
+  getDb();
+  run("UPDATE sessions SET ended_at = NULL WHERE id = ?", [sessionId]);
+}
+
 export function addUtterance(sessionId, data) {
   getDb();
   run(

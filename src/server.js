@@ -28,16 +28,40 @@ const activeSessions = new Map();
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
 
-  socket.on("start-listening", async () => {
+  socket.on("start-listening", async (opts) => {
     // Clean up any existing session
     await stopSession(socket.id);
 
     try {
       const settings = loadSettings();
-      const audioSource = settings.audioSource;
-      const targetLanguage = settings.targetLanguage;
-      const micTargetLanguage = settings.micTargetLanguage ?? targetLanguage;
-      const systemTargetLanguage = settings.systemTargetLanguage ?? targetLanguage;
+      const resumeSessionId = opts?.sessionId;
+      let audioSource, micTargetLanguage, systemTargetLanguage;
+
+      if (resumeSessionId) {
+        // Resume existing session
+        const existing = history.getSession(resumeSessionId);
+        if (!existing || !existing.ended_at) {
+          socket.emit("error", { message: "Session not found or still active" });
+          return;
+        }
+        history.reopenSession(resumeSessionId);
+        audioSource = existing.audio_source;
+        const targetLang = existing.target_language;
+        if (targetLang.includes(",")) {
+          const [mic, sys] = targetLang.split(",");
+          micTargetLanguage = mic;
+          systemTargetLanguage = sys;
+        } else {
+          micTargetLanguage = targetLang;
+          systemTargetLanguage = targetLang;
+        }
+      } else {
+        audioSource = settings.audioSource;
+        const targetLanguage = settings.targetLanguage;
+        micTargetLanguage = settings.micTargetLanguage ?? targetLanguage;
+        systemTargetLanguage = settings.systemTargetLanguage ?? targetLanguage;
+      }
+
       const languageHints = settings.languageHints || ["en"];
 
       // Resolve devices
@@ -80,11 +104,16 @@ io.on("connection", (socket) => {
 
       const deviceName = micDevice?.name || `Device ${micIndex}`;
 
-      // Create history session
-      const historyTargetLang = audioSource === "both" && micTargetLanguage !== systemTargetLanguage
-        ? `${micTargetLanguage},${systemTargetLanguage}`
-        : (audioSource === "system" ? systemTargetLanguage : micTargetLanguage);
-      const dbSessionId = history.createSession(audioSource, historyTargetLang, deviceName);
+      // Create or reuse history session
+      let dbSessionId;
+      if (resumeSessionId) {
+        dbSessionId = resumeSessionId;
+      } else {
+        const historyTargetLang = audioSource === "both" && micTargetLanguage !== systemTargetLanguage
+          ? `${micTargetLanguage},${systemTargetLanguage}`
+          : (audioSource === "system" ? systemTargetLanguage : micTargetLanguage);
+        dbSessionId = history.createSession(audioSource, historyTargetLang, deviceName);
+      }
 
       const state = {
         dbSessionId,

@@ -8,6 +8,8 @@ const initialState = {
   isListening: false,
   isPaused: false,
   currentSessionId: null,
+  selectedSessionId: null,
+  selectedSessionData: null,
   pendingAction: false,
   statusText: "Connecting...",
   statusClass: "",
@@ -45,18 +47,21 @@ function reducer(state, action) {
         listeningSince = null;
         pausedElapsed = 0;
       } else if (!state.isListening) {
-        // Just started — clear old transcript
+        // Just started — keep utterances if resuming a selected session
+        const isResume = state.selectedSessionId && state.selectedSessionId === d.sessionId;
         return {
           ...state,
           isListening,
           isPaused,
           currentSessionId: d.sessionId,
+          selectedSessionId: null,
+          selectedSessionData: null,
           pendingAction: false,
           statusText,
           statusClass,
           partialResult: null,
-          utterances: [],
-          speakerColorMap: new Map(),
+          utterances: isResume ? state.utterances : [],
+          speakerColorMap: isResume ? state.speakerColorMap : new Map(),
           listeningSince: Date.now(),
           pausedElapsed: 0,
         };
@@ -121,6 +126,31 @@ function reducer(state, action) {
       return { ...state, pendingAction: true };
     case "CLEAR_TRANSCRIPT":
       return { ...state, utterances: [], partialResult: null, speakerColorMap: new Map() };
+    case "SELECT_SESSION": {
+      const { sessionId, sessionData, utterances } = action.payload;
+      const newMap = new Map();
+      for (const u of utterances) {
+        const speaker = u.speaker || u.original_speaker;
+        if (speaker) getSpeakerIndex(speaker, newMap);
+      }
+      return {
+        ...state,
+        selectedSessionId: sessionId,
+        selectedSessionData: sessionData,
+        utterances,
+        partialResult: null,
+        speakerColorMap: newMap,
+      };
+    }
+    case "DESELECT_SESSION":
+      return {
+        ...state,
+        selectedSessionId: null,
+        selectedSessionData: null,
+        utterances: [],
+        partialResult: null,
+        speakerColorMap: new Map(),
+      };
     default:
       return state;
   }

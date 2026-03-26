@@ -1,6 +1,5 @@
 const TABS = [
   { key: "live", label: "Live" },
-  { key: "history", label: "History" },
   { key: "settings", label: "Settings" },
 ];
 
