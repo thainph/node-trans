@@ -8,6 +8,7 @@ const SETTINGS_FILE = path.join(CONFIG_DIR, "settings.json");
 const DEFAULTS = {
   audioSource: "mic",
   micDeviceIndex: null,
+  systemDeviceIndex: null,
   targetLanguage: "vi",
   languageHints: ["en"],
   port: 3000,

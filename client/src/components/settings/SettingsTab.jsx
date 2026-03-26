@@ -8,6 +8,7 @@ export default function SettingsTab({ active }) {
   const [audioSource, setAudioSource] = useState("mic");
   const [targetLanguage, setTargetLanguage] = useState("vi");
   const [micDeviceIndex, setMicDeviceIndex] = useState("");
+  const [systemDeviceIndex, setSystemDeviceIndex] = useState("");
   const [devices, setDevices] = useState([]);
   const [saveStatus, setSaveStatus] = useState("");
 
@@ -19,6 +20,7 @@ export default function SettingsTab({ active }) {
       setAudioSource(settings.audioSource || "mic");
       setTargetLanguage(settings.targetLanguage || "vi");
       setMicDeviceIndex(settings.micDeviceIndex != null ? String(settings.micDeviceIndex) : "");
+      setSystemDeviceIndex(settings.systemDeviceIndex != null ? String(settings.systemDeviceIndex) : "");
     }).catch(() => {});
   }, [active]);
 
@@ -28,6 +30,7 @@ export default function SettingsTab({ active }) {
         audioSource,
         targetLanguage,
         micDeviceIndex: micDeviceIndex ? parseInt(micDeviceIndex) : null,
+        systemDeviceIndex: systemDeviceIndex ? parseInt(systemDeviceIndex) : null,
       });
       setSaveStatus("Saved!");
       setTimeout(() => setSaveStatus(""), 2000);
@@ -60,6 +63,23 @@ export default function SettingsTab({ active }) {
           ))}
         </select>
       </div>
+
+      {(audioSource === "system" || audioSource === "both") && (
+        <div>
+          <label className="block text-xs text-gray-400 dark:text-gray-600 mb-1.5 font-medium uppercase tracking-wider">
+            System Audio Device:
+          </label>
+          <select className={selectCls} value={systemDeviceIndex} onChange={(e) => setSystemDeviceIndex(e.target.value)}>
+            <option value="">-- Auto-detect --</option>
+            {devices.map((d) => (
+              <option key={d.index} value={String(d.index)}>[{d.index}] {d.name}</option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">
+            Windows: select Stereo Mix or VB-CABLE input device
+          </p>
+        </div>
+      )}
 
       <div>
         <label className="block text-xs text-gray-400 dark:text-gray-600 mb-1.5 font-medium uppercase tracking-wider">

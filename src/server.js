@@ -47,21 +47,32 @@ io.on("connection", (socket) => {
       // On Windows, dshow needs device name; on macOS, avfoundation uses index
       const micCaptureDev = isWin ? micDevice?.name : micIndex;
 
-      // System device: auto-detect virtual loopback input device
+      // System device: use manual setting or auto-detect virtual loopback input device
       let systemCaptureDev = null;
       if (audioSource === "system" || audioSource === "both") {
-        // macOS: BlackHole, Windows: VB-CABLE / Stereo Mix / CABLE Output
-        const loopbackPattern = isWin
-          ? /cable|stereo mix|virtual|vb-audio/i
-          : /blackhole/i;
-        const loopback = devices.find((d) => loopbackPattern.test(d.name));
-        if (loopback) {
-          systemCaptureDev = isWin ? loopback.name : loopback.index;
+        const systemIndex = settings.systemDeviceIndex;
+        if (systemIndex != null) {
+          // Manual selection from settings
+          const systemDevice = devices.find((d) => d.index === systemIndex);
+          if (systemDevice) {
+            systemCaptureDev = isWin ? systemDevice.name : systemDevice.index;
+          } else {
+            socket.emit("error", { message: `System audio device index ${systemIndex} not found` });
+          }
         } else {
-          const hint = isWin
-            ? "Virtual Audio Cable (VB-CABLE) is not installed. Install VB-CABLE to capture system audio."
-            : "BlackHole chưa được cài đặt. Cần BlackHole để capture system audio.";
-          socket.emit("error", { message: hint });
+          // Auto-detect: macOS: BlackHole, Windows: VB-CABLE / Stereo Mix / CABLE Output
+          const loopbackPattern = isWin
+            ? /cable|stereo mix|virtual|vb-audio/i
+            : /blackhole/i;
+          const loopback = devices.find((d) => loopbackPattern.test(d.name));
+          if (loopback) {
+            systemCaptureDev = isWin ? loopback.name : loopback.index;
+          } else {
+            const hint = isWin
+              ? "System audio device not found. Select a device in Settings, or install VB-CABLE."
+              : "BlackHole chưa được cài đặt. Cần BlackHole để capture system audio.";
+            socket.emit("error", { message: hint });
+          }
         }
       }
 
