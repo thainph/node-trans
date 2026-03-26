@@ -164,27 +164,36 @@ function listOutputDevicesWindows() {
 function parseDshow(stderr) {
   const lines = stderr.split("\n");
   const devices = [];
-  let inAudioSection = false;
   let index = 0;
 
-  for (const line of lines) {
-    // dshow lists video devices first, then audio
-    if (line.includes("DirectShow audio devices")) {
-      inAudioSection = true;
-      continue;
+  // Check if old format with section headers (ffmpeg <7)
+  const hasHeaders = lines.some((l) => l.includes("DirectShow audio devices"));
+
+  if (hasHeaders) {
+    // Old format: section-based parsing
+    let inAudioSection = false;
+    for (const line of lines) {
+      if (line.includes("DirectShow audio devices")) {
+        inAudioSection = true;
+        continue;
+      }
+      if (inAudioSection && line.includes("DirectShow video devices")) {
+        break;
+      }
+      if (inAudioSection && !line.includes("Alternative name")) {
+        const match = line.match(/"(.+?)"/);
+        if (match) {
+          devices.push({ index: index++, name: match[1] });
+        }
+      }
     }
-    if (inAudioSection && line.includes("DirectShow video devices")) {
-      break;
-    }
-    if (inAudioSection && !line.includes("Alternative name")) {
-      // Match device name: [dshow @ ...] "Device Name"
-      const match = line.match(/"(.+?)"/);
+  } else {
+    // New format (ffmpeg 7+): "Device Name" (audio)
+    for (const line of lines) {
+      if (line.includes("Alternative name")) continue;
+      const match = line.match(/"(.+?)"\s*\(audio\)/);
       if (match) {
-        devices.push({
-          index: index,
-          name: match[1],
-        });
-        index++;
+        devices.push({ index: index++, name: match[1] });
       }
     }
   }
