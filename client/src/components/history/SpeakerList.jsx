@@ -1,13 +1,15 @@
 import { getSpeakerIndex } from "../../utils/speakerColors";
+import { useI18n } from "../../i18n/I18nContext";
 
 export default function SpeakerList({ speakers, aliases, speakerColorMap, onRenameSpeaker }) {
+  const { t } = useI18n();
   if (speakers.length === 0) return null;
 
-  const speakerName = (s) => aliases[s] || `Speaker ${s}`;
+  const speakerName = (s) => aliases[s] || `${t("speaker")} ${s}`;
 
   return (
     <div className="mt-3 pt-2.5 border-t border-gray-100/60 dark:border-indigo-500/10">
-      <div className="text-xs text-gray-400 dark:text-gray-600 font-medium mb-2">Speakers</div>
+      <div className="text-xs text-gray-400 dark:text-gray-600 font-medium mb-2">{t("speakers")}</div>
       {speakers.map((s) => {
         const idx = getSpeakerIndex(s, speakerColorMap);
         return (

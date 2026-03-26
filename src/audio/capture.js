@@ -43,7 +43,8 @@ export function startCapture(device) {
     "pipe:1",
   );
 
-  const ffmpeg = spawn("ffmpeg", args, {
+  const ffmpegBin = process.env.FFMPEG_PATH || "ffmpeg";
+  const ffmpeg = spawn(ffmpegBin, args, {
     stdio: ["pipe", "pipe", "pipe"],
   });
 

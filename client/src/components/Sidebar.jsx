@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSocket } from "../context/SocketContext";
+import { useI18n } from "../i18n/I18nContext";
 import { fetchSessions, fetchSession, deleteSession } from "../utils/api";
 import { SOURCE_LABELS } from "../utils/constants";
 import { ConfirmDialog } from "./Modal";
@@ -13,6 +14,7 @@ function formatDuration(startedAt, endedAt) {
 }
 
 function SidebarItem({ session, isActive, isSelected, disabled, selectMode, checked, onToggleCheck, onClick }) {
+  const { t } = useI18n();
   const startDate = new Date(session.started_at + "Z");
   const date = startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const time = startDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
@@ -55,7 +57,7 @@ function SidebarItem({ session, isActive, isSelected, disabled, selectMode, chec
           <span>{date} {time}</span>
           {duration && <span>· {duration}</span>}
           <span>· {source}</span>
-          {session.utterance_count > 0 && <span>· {session.utterance_count} msgs</span>}
+          {session.utterance_count > 0 && <span>· {session.utterance_count} {t("msgs")}</span>}
         </div>
       </div>
     </div>
@@ -64,6 +66,7 @@ function SidebarItem({ session, isActive, isSelected, disabled, selectMode, chec
 
 export default function Sidebar() {
   const { state, dispatch } = useSocket();
+  const { t } = useI18n();
   const { isListening, currentSessionId, selectedSessionId } = state;
 
   const [sessions, setSessions] = useState([]);
@@ -180,11 +183,15 @@ export default function Sidebar() {
     return (
       <div className="flex flex-col items-center py-4 px-1 w-10 shrink-0">
         <button
-          className="bg-transparent border-none cursor-pointer text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-400 transition-colors p-1 rounded-lg hover:bg-gray-100/60 dark:hover:bg-white/5"
+          className="bg-transparent border-none cursor-pointer text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-400 transition-all duration-200 p-1.5 rounded-lg hover:bg-gray-100/60 dark:hover:bg-white/5 hover:scale-110 active:scale-95"
           onClick={() => setCollapsed(false)}
-          title="Show sessions"
+          title={t("showSessions")}
         >
-          ▶
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="3" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+            <polyline points="14 9 17 12 14 15" />
+          </svg>
         </button>
       </div>
     );
@@ -194,13 +201,17 @@ export default function Sidebar() {
     <div className="flex flex-col w-64 shrink-0 border-r border-gray-200/50 dark:border-indigo-500/10 pr-3 mr-3">
       {/* Header */}
       <div className="flex items-center justify-between py-3 px-1">
-        <span className="font-semibold text-sm text-gray-700 dark:text-gray-300">Sessions</span>
+        <span className="font-semibold text-sm text-gray-700 dark:text-gray-300">{t("sessions")}</span>
         <button
-          className="bg-transparent border-none cursor-pointer text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-400 transition-colors p-1 rounded-lg hover:bg-gray-100/60 dark:hover:bg-white/5 text-xs"
+          className="bg-transparent border-none cursor-pointer text-gray-400 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-400 transition-all duration-200 p-1.5 rounded-lg hover:bg-gray-100/60 dark:hover:bg-white/5 hover:scale-110 active:scale-95"
           onClick={() => setCollapsed(true)}
-          title="Hide sessions"
+          title={t("hideSessions")}
         >
-          ◀
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="3" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+            <polyline points="16 9 13 12 16 15" />
+          </svg>
         </button>
       </div>
 
@@ -214,7 +225,7 @@ export default function Sidebar() {
               checked={checkedIds.size === sessions.length && sessions.length > 0}
               onChange={(e) => handleSelectAll(e.target.checked)}
             />
-            All
+            {t("all")}
           </label>
           <span className="text-cyan-500 font-medium text-[0.68rem]">
             {checkedIds.size > 0 ? `${checkedIds.size}` : ""}
@@ -224,13 +235,13 @@ export default function Sidebar() {
             disabled={checkedIds.size === 0}
             onClick={handleBulkDelete}
           >
-            Delete
+            {t("delete")}
           </button>
           <button
             className="bg-gray-100/80 dark:bg-white/5 text-gray-500 dark:text-gray-400 border border-gray-200/50 dark:border-indigo-500/10 px-2 py-1 rounded-lg cursor-pointer text-[0.68rem] transition-all hover:bg-gray-200/80 dark:hover:bg-white/10 active:scale-95"
             onClick={handleCancelSelect}
           >
-            Cancel
+            {t("cancel")}
           </button>
         </div>
       )}
@@ -239,7 +250,7 @@ export default function Sidebar() {
       <div className="flex-1 overflow-y-auto">
         {sessions.length === 0 ? (
           <div className="text-gray-300 dark:text-gray-700 text-center py-10 text-xs">
-            No sessions yet
+            {t("noSessions")}
           </div>
         ) : (
           sessions.map((s) => (
@@ -269,11 +280,11 @@ export default function Sidebar() {
 
       <ConfirmDialog
         open={!!confirmDelete}
-        title={confirmDelete === "bulk" ? "Delete sessions" : "Delete session"}
+        title={confirmDelete === "bulk" ? t("deleteSessions") : t("deleteSession")}
         message={confirmDelete === "bulk"
-          ? `Are you sure you want to delete ${checkedIds.size} session(s)? This action cannot be undone.`
-          : "Are you sure you want to delete this session? This action cannot be undone."}
-        confirmLabel="Delete"
+          ? t("deleteSessionsConfirm", { count: checkedIds.size })
+          : t("deleteSessionConfirm")}
+        confirmLabel={t("delete")}
         confirmColor="red"
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}

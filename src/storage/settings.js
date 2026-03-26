@@ -2,7 +2,9 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
-const CONFIG_DIR = path.join(os.homedir(), ".node-trans");
+const CONFIG_DIR = process.env.ELECTRON_USER_DATA
+  ? path.join(process.env.ELECTRON_USER_DATA, "data")
+  : path.join(os.homedir(), ".node-trans");
 const SETTINGS_FILE = path.join(CONFIG_DIR, "settings.json");
 
 const DEFAULTS = {
@@ -14,6 +16,7 @@ const DEFAULTS = {
   systemTargetLanguage: null,
   languageHints: ["en"],
   port: 3000,
+  sonioxApiKey: null,
 };
 
 export function loadSettings() {

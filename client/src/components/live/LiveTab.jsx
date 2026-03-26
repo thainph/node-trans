@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSocket } from "../../context/SocketContext";
+import { useI18n } from "../../i18n/I18nContext";
 import { setSpeakerAlias } from "../../utils/api";
 import { SOURCE_LABELS_FULL, LANG_LABELS_FULL } from "../../utils/constants";
 import { PromptDialog } from "../Modal";
@@ -9,6 +10,7 @@ import Transcript from "./Transcript";
 
 export default function LiveTab() {
   const { state, dispatch } = useSocket();
+  const { t } = useI18n();
   const { selectedSessionData, selectedSessionId, utterances, speakerColorMap, isListening } = state;
   const [speakerModal, setSpeakerModal] = useState(null);
 
@@ -17,7 +19,7 @@ export default function LiveTab() {
     const d = selectedSessionData;
     const startDate = new Date(d.started_at + "Z");
     const endDate = d.ended_at ? new Date(d.ended_at + "Z") : null;
-    let durationText = "In progress";
+    let durationText = t("inProgress");
     if (endDate) {
       const diffMs = endDate - startDate;
       const mins = Math.floor(diffMs / 60000);
@@ -37,16 +39,16 @@ export default function LiveTab() {
       speakers,
       aliases,
     };
-  }, [selectedSessionData, isListening]);
+  }, [selectedSessionData, isListening, t]);
 
   const stats = sessionInfo
     ? [
-        ["Started", sessionInfo.startDate],
-        ["Duration", sessionInfo.duration],
-        ["Source", sessionInfo.source],
-        ["Target", sessionInfo.target],
-        ["Utterances", sessionInfo.uttCount],
-        ["Speakers", sessionInfo.speakers.length || "—"],
+        [t("started"), sessionInfo.startDate],
+        [t("duration"), sessionInfo.duration],
+        [t("source"), sessionInfo.source],
+        [t("target"), sessionInfo.target],
+        [t("utterances"), sessionInfo.uttCount],
+        [t("speakers"), sessionInfo.speakers.length || "—"],
       ]
     : [];
 
@@ -75,7 +77,7 @@ export default function LiveTab() {
 
       <PromptDialog
         open={!!speakerModal}
-        title={`Rename ${speakerModal?.currentName || ""}`}
+        title={t("renameSpeaker", { name: speakerModal?.currentName || "" })}
         defaultValue={speakerModal?.currentName || ""}
         onCancel={() => setSpeakerModal(null)}
         onConfirm={async (newName) => {

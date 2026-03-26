@@ -3,31 +3,40 @@
   "version": "1.0.0",
   "description": "Real-time audio translation app using Soniox API",
   "type": "module",
-  "main": "src/server.js",
+  "main": "electron/main.js",
   "scripts": {
     "start": "node src/server.js",
     "dev:server": "node --watch src/server.js",
     "dev:client": "vite --config client/vite.config.js",
     "dev": "npx concurrently \"npm:dev:server\" \"npm:dev:client\"",
-    "build": "vite build --config client/vite.config.js"
+    "build": "vite build --config client/vite.config.js",
+    "electron:dev": "concurrently \"npm:dev:client\" \"electron electron/main.js\"",
+    "electron:build": "npm run build && electron-builder --config electron-builder.config.js",
+    "electron:build:mac": "npm run build && electron-builder --config electron-builder.config.js --mac",
+    "electron:build:win": "npm run build && electron-builder --config electron-builder.config.js --win",
+    "download:ffmpeg": "node scripts/download-ffmpeg.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@soniox/node": "^1.1.2",
+    "better-sqlite3": "^12.8.0",
+    "compression": "^1.8.1",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3",
-    "sql.js": "^1.14.1"
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^9.2.1",
+    "electron": "^41.0.4",
+    "electron-builder": "^26.8.1",
+    "ffmpeg-static": "^5.3.0",
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.2"
   }

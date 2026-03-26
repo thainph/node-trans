@@ -1,46 +1,14 @@
-import initSqlJs from "sql.js";
+import Database from "better-sqlite3";
 import path from "path";
 import os from "os";
 import fs from "fs";
 
-const SQL = await initSqlJs();
-
-const CONFIG_DIR = path.join(os.homedir(), ".node-trans");
+const CONFIG_DIR = process.env.ELECTRON_USER_DATA
+  ? path.join(process.env.ELECTRON_USER_DATA, "data")
+  : path.join(os.homedir(), ".node-trans");
 const DB_PATH = path.join(CONFIG_DIR, "history.db");
 
 let db;
-
-function save() {
-  if (!db) return;
-  fs.writeFileSync(DB_PATH, Buffer.from(db.export()));
-}
-
-// Helper: run parameterized SELECT, return all rows as objects
-function all(sql, params = []) {
-  const stmt = db.prepare(sql);
-  if (params.length) stmt.bind(params);
-  const rows = [];
-  while (stmt.step()) {
-    rows.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return rows;
-}
-
-// Helper: run parameterized SELECT, return first row as object or undefined
-function get(sql, params = []) {
-  const stmt = db.prepare(sql);
-  if (params.length) stmt.bind(params);
-  const row = stmt.step() ? stmt.getAsObject() : undefined;
-  stmt.free();
-  return row;
-}
-
-// Helper: run parameterized mutation, persist to disk
-function run(sql, params = []) {
-  db.run(sql, params);
-  save();
-}
 
 export function getDb() {
   if (db) return db;
@@ -49,12 +17,9 @@ export function getDb() {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
   }
 
-  if (fs.existsSync(DB_PATH)) {
-    const fileBuffer = fs.readFileSync(DB_PATH);
-    db = new SQL.Database(fileBuffer);
-  } else {
-    db = new SQL.Database();
-  }
+  db = new Database(DB_PATH);
+  db.pragma("journal_mode = WAL");
+  db.pragma("foreign_keys = ON");
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -90,100 +55,94 @@ export function getDb() {
   `);
 
   // Migrate: add title column if missing
-  const cols = all("PRAGMA table_info(sessions)");
+  const cols = db.prepare("PRAGMA table_info(sessions)").all();
   if (!cols.some((c) => c.name === "title")) {
-    db.run("ALTER TABLE sessions ADD COLUMN title TEXT");
+    db.exec("ALTER TABLE sessions ADD COLUMN title TEXT");
   }
 
-  save();
   return db;
 }
 
 export function createSession(audioSource, targetLanguage, deviceName) {
   getDb();
-  db.run(
-    "INSERT INTO sessions (audio_source, target_language, device_name) VALUES (?, ?, ?)",
-    [audioSource, targetLanguage, deviceName || null]
-  );
-  const lastId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
-  save();
-  return lastId;
+  const result = db.prepare(
+    "INSERT INTO sessions (audio_source, target_language, device_name) VALUES (?, ?, ?)"
+  ).run(audioSource, targetLanguage, deviceName || null);
+  return result.lastInsertRowid;
 }
 
 export function endSession(sessionId) {
   getDb();
-  run("UPDATE sessions SET ended_at = datetime('now') WHERE id = ?", [sessionId]);
+  db.prepare("UPDATE sessions SET ended_at = datetime('now') WHERE id = ?").run(sessionId);
 }
 
 export function reopenSession(sessionId) {
   getDb();
-  run("UPDATE sessions SET ended_at = NULL WHERE id = ?", [sessionId]);
+  db.prepare("UPDATE sessions SET ended_at = NULL WHERE id = ?").run(sessionId);
 }
 
 export function addUtterance(sessionId, data) {
   getDb();
-  run(
+  db.prepare(
     `INSERT INTO utterances (session_id, speaker, original_text, original_language, translated_text, translation_language, source)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
-      sessionId,
-      data.speaker || null,
-      data.originalText,
-      data.originalLanguage || null,
-      data.translatedText || null,
-      data.translationLanguage || null,
-      data.source || "mic",
-    ]
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    sessionId,
+    data.speaker || null,
+    data.originalText,
+    data.originalLanguage || null,
+    data.translatedText || null,
+    data.translationLanguage || null,
+    data.source || "mic",
   );
 }
 
 export function getSessions(limit = 50, offset = 0) {
   getDb();
-  return all(
+  return db.prepare(
     `SELECT s.*,
       (SELECT COUNT(*) FROM utterances u WHERE u.session_id = s.id) AS utterance_count,
       (SELECT COUNT(DISTINCT u.speaker) FROM utterances u WHERE u.session_id = s.id AND u.speaker IS NOT NULL) AS speaker_count
     FROM sessions s
-    ORDER BY s.started_at DESC LIMIT ? OFFSET ?`,
-    [limit, offset]
-  );
+    ORDER BY s.started_at DESC LIMIT ? OFFSET ?`
+  ).all(limit, offset);
 }
 
 export function getSession(sessionId) {
   getDb();
-  return get("SELECT * FROM sessions WHERE id = ?", [sessionId]);
+  return db.prepare("SELECT * FROM sessions WHERE id = ?").get(sessionId);
 }
 
 export function getSpeakerAliases(sessionId) {
   getDb();
-  return all("SELECT speaker, alias FROM speaker_aliases WHERE session_id = ?", [sessionId]);
+  return db.prepare("SELECT speaker, alias FROM speaker_aliases WHERE session_id = ?").all(sessionId);
 }
 
 export function setSpeakerAlias(sessionId, speaker, alias) {
   getDb();
-  run(
-    "INSERT INTO speaker_aliases (session_id, speaker, alias) VALUES (?, ?, ?) ON CONFLICT(session_id, speaker) DO UPDATE SET alias = ?",
-    [sessionId, speaker, alias, alias]
-  );
+  db.prepare(
+    "INSERT INTO speaker_aliases (session_id, speaker, alias) VALUES (?, ?, ?) ON CONFLICT(session_id, speaker) DO UPDATE SET alias = ?"
+  ).run(sessionId, speaker, alias, alias);
 }
 
 export function getUtterances(sessionId) {
   getDb();
-  return all(
-    "SELECT * FROM utterances WHERE session_id = ? ORDER BY timestamp ASC",
-    [sessionId]
-  );
+  return db.prepare(
+    "SELECT * FROM utterances WHERE session_id = ? ORDER BY timestamp ASC"
+  ).all(sessionId);
 }
 
 export function renameSession(sessionId, title) {
   getDb();
-  run("UPDATE sessions SET title = ? WHERE id = ?", [title, sessionId]);
+  db.prepare("UPDATE sessions SET title = ? WHERE id = ?").run(title, sessionId);
 }
 
 export function deleteSession(sessionId) {
   getDb();
-  db.run("DELETE FROM speaker_aliases WHERE session_id = ?", [sessionId]);
-  db.run("DELETE FROM utterances WHERE session_id = ?", [sessionId]);
-  db.run("DELETE FROM sessions WHERE id = ?", [sessionId]);
-  save();
+  const del = db.transaction(() => {
+    db.prepare("DELETE FROM speaker_aliases WHERE session_id = ?").run(sessionId);
+    db.prepare("DELETE FROM utterances WHERE session_id = ?").run(sessionId);
+    db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+  });
+  del();
 }

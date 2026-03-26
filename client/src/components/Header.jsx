@@ -1,8 +1,10 @@
 import StatusBar from "./StatusBar";
 import { useTheme } from "../hooks/useTheme";
+import { useI18n } from "../i18n/I18nContext";
 
 export default function Header() {
   const [theme, toggleTheme] = useTheme();
+  const { t } = useI18n();
 
   return (
     <header className="flex justify-between items-center pb-3 border-b border-gray-200/60 dark:border-indigo-500/10">
@@ -17,7 +19,7 @@ export default function Header() {
         <button
           className="bg-transparent border-none cursor-pointer text-lg px-2 py-1 rounded-xl transition-all duration-200 hover:bg-gray-100/80 dark:hover:bg-white/5 hover:shadow-sm leading-none"
           onClick={toggleTheme}
-          title="Toggle theme"
+          title={t("toggleTheme")}
         >
           {theme === "dark" ? "☀️" : "🌙"}
         </button>

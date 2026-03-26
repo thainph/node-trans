@@ -11,7 +11,8 @@ const initialState = {
   selectedSessionId: null,
   selectedSessionData: null,
   pendingAction: false,
-  statusText: "Connecting...",
+  statusText: "connecting",
+  statusKey: "connecting",
   statusClass: "",
   utterances: [],
   partialResult: null,
@@ -27,15 +28,16 @@ function reducer(state, action) {
       const isListening = d.listening;
       const isPaused = d.paused || false;
 
-      let statusText, statusClass;
+      let statusKey, statusParams, statusClass;
       if (isListening && !isPaused) {
-        statusText = `Listening (${d.audioSource})`;
+        statusKey = "listening";
+        statusParams = { source: d.audioSource };
         statusClass = "listening";
       } else if (isListening && isPaused) {
-        statusText = "Paused";
+        statusKey = "paused";
         statusClass = "paused";
       } else {
-        statusText = "Stopped";
+        statusKey = "stopped";
         statusClass = "";
       }
 
@@ -57,7 +59,8 @@ function reducer(state, action) {
           selectedSessionId: null,
           selectedSessionData: null,
           pendingAction: false,
-          statusText,
+          statusKey,
+          statusParams,
           statusClass,
           partialResult: null,
           utterances: isResume ? state.utterances : [],
@@ -104,12 +107,13 @@ function reducer(state, action) {
       return {
         ...state,
         pendingAction: false,
+        statusKey: null,
         statusText: action.payload.message,
         statusClass: "error",
       };
     case "CONNECTED":
       if (!state.isListening) {
-        return { ...state, statusText: "Connected", statusClass: "" };
+        return { ...state, statusKey: "connected", statusClass: "" };
       }
       return state;
     case "DISCONNECTED":
@@ -117,10 +121,17 @@ function reducer(state, action) {
         ...state,
         isListening: false,
         isPaused: false,
-        statusText: "Disconnected",
+        statusKey: "disconnected",
         statusClass: "error",
         listeningSince: null,
         pausedElapsed: 0,
+      };
+    case "TOAST":
+      return {
+        ...state,
+        statusKey: null,
+        statusText: action.payload.message,
+        statusClass: action.payload.type || "",
       };
     case "SET_PENDING":
       return { ...state, pendingAction: true };

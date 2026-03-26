@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import compression from "compression";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
@@ -7,10 +8,35 @@ import path from "path";
 
 import apiRoutes from "./routes/api.js";
 import { loadSettings } from "./storage/settings.js";
-import { createSession as createSonioxSession } from "./soniox/session.js";
-import { startCapture } from "./audio/capture.js";
-import { listInputDevices } from "./audio/devices.js";
-import * as history from "./storage/history.js";
+
+// Lazy-loaded modules (deferred to first use for faster startup)
+let _history, _createSonioxSession, _startCapture, _listInputDevices;
+
+async function getHistory() {
+  if (!_history) _history = await import("./storage/history.js");
+  return _history;
+}
+async function getSonioxSession() {
+  if (!_createSonioxSession) {
+    const mod = await import("./soniox/session.js");
+    _createSonioxSession = mod.createSession;
+  }
+  return _createSonioxSession;
+}
+async function getCapture() {
+  if (!_startCapture) {
+    const mod = await import("./audio/capture.js");
+    _startCapture = mod.startCapture;
+  }
+  return _startCapture;
+}
+async function getDevices() {
+  if (!_listInputDevices) {
+    const mod = await import("./audio/devices.js");
+    _listInputDevices = mod.listInputDevices;
+  }
+  return _listInputDevices;
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,6 +44,7 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server);
 
+app.use(compression());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../dist")));
 app.use("/api", apiRoutes);
@@ -33,7 +60,18 @@ io.on("connection", (socket) => {
     await stopSession(socket.id);
 
     try {
+      const history = await getHistory();
+      const createSonioxSession = await getSonioxSession();
+      const startCapture = await getCapture();
+      const listInputDevices = await getDevices();
+
       const settings = loadSettings();
+
+      if (!settings.sonioxApiKey) {
+        socket.emit("error", { message: "Chưa cài đặt Soniox API Key. Vào Settings để nhập API key." });
+        return;
+      }
+
       const resumeSessionId = opts?.sessionId;
       let audioSource, micTargetLanguage, systemTargetLanguage;
 
@@ -142,7 +180,7 @@ io.on("connection", (socket) => {
 
         // Start Soniox session with per-source target language
         const sourceTargetLang = source === "mic" ? micTargetLanguage : systemTargetLanguage;
-        const soniox = createSonioxSession({ targetLanguage: sourceTargetLang, languageHints });
+        const soniox = createSonioxSession({ targetLanguage: sourceTargetLang, languageHints, apiKey: settings.sonioxApiKey || undefined });
 
         soniox.onPartial((partial) => {
           socket.emit("partial-result", { source, ...partial });
@@ -184,7 +222,12 @@ io.on("connection", (socket) => {
       socket.emit("status", { listening: true, sessionId: dbSessionId, audioSource });
       console.log(`Started listening: socket=${socket.id}, session=${dbSessionId}, source=${audioSource}`);
     } catch (err) {
-      socket.emit("error", { message: `Failed to start: ${err.message}` });
+      const msg = err.message?.includes("authenticate") || err.message?.includes("401") || err.message?.includes("Unauthorized")
+        ? "API Key không hợp lệ. Kiểm tra lại Soniox API Key trong Settings."
+        : err.message?.includes("ENOTFOUND") || err.message?.includes("ECONNREFUSED")
+        ? "Không thể kết nối đến Soniox. Kiểm tra kết nối mạng."
+        : `Không thể bắt đầu: ${err.message}`;
+      socket.emit("error", { message: msg });
       console.error("Start error:", err);
     }
   });
@@ -240,14 +283,24 @@ async function stopSession(socketId) {
     }
   }
 
+  const history = await getHistory();
   history.endSession(state.dbSessionId);
   activeSessions.delete(socketId);
 }
 
 // Start server
-const settings = loadSettings();
-const PORT = process.env.PORT || settings.port || 3000;
+export async function startServer(overridePort) {
+  const settings = loadSettings();
+  const PORT = overridePort || process.env.PORT || settings.port || 3000;
+  return new Promise((resolve) => {
+    server.listen(PORT, () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+      resolve(PORT);
+    });
+  });
+}
 
-server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+// Auto-start when running directly (not via Electron)
+if (!process.env.ELECTRON) {
+  startServer();
+}

@@ -1,21 +1,36 @@
 import { spawn, execFile } from "child_process";
 
 const IS_WIN = process.platform === "win32";
+const FFMPEG_BIN = () => process.env.FFMPEG_PATH || "ffmpeg";
+
+// Cache with 30-second TTL
+const CACHE_TTL = 30_000;
+const cache = { input: null, output: null, inputAt: 0, outputAt: 0 };
 
 // Input devices — used for mic & system audio capture
 export async function listInputDevices() {
-  return IS_WIN ? listInputDevicesWindows() : listInputDevicesMac();
+  const now = Date.now();
+  if (cache.input && now - cache.inputAt < CACHE_TTL) return cache.input;
+  const result = await (IS_WIN ? listInputDevicesWindows() : listInputDevicesMac());
+  cache.input = result;
+  cache.inputAt = now;
+  return result;
 }
 
 // Output devices — for system audio setting display
 export async function listOutputDevices() {
-  return IS_WIN ? listOutputDevicesWindows() : listOutputDevicesMac();
+  const now = Date.now();
+  if (cache.output && now - cache.outputAt < CACHE_TTL) return cache.output;
+  const result = await (IS_WIN ? listOutputDevicesWindows() : listOutputDevicesMac());
+  cache.output = result;
+  cache.outputAt = now;
+  return result;
 }
 
 // Check if ffmpeg is available
 export function checkFfmpeg() {
   return new Promise((resolve) => {
-    const proc = spawn("ffmpeg", ["-version"], { stdio: ["pipe", "pipe", "pipe"] });
+    const proc = spawn(FFMPEG_BIN(), ["-version"], { stdio: ["pipe", "pipe", "pipe"] });
     proc.on("error", () => resolve(false));
     proc.on("close", (code) => resolve(code === 0));
   });
@@ -35,7 +50,7 @@ export async function listAllDevices() {
 
 function listInputDevicesMac() {
   return new Promise((resolve) => {
-    const ffmpeg = spawn("ffmpeg", [
+    const ffmpeg = spawn(FFMPEG_BIN(), [
       "-f", "avfoundation",
       "-list_devices", "true",
       "-i", "",
@@ -114,7 +129,7 @@ function parseAvfoundation(stderr) {
 
 function listInputDevicesWindows() {
   return new Promise((resolve) => {
-    const ffmpeg = spawn("ffmpeg", [
+    const ffmpeg = spawn(FFMPEG_BIN(), [
       "-f", "dshow",
       "-list_devices", "true",
       "-i", "dummy",

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSocket } from "../../context/SocketContext";
+import { useI18n } from "../../i18n/I18nContext";
 import { deleteSession, renameSession, getExportUrl } from "../../utils/api";
 import { ConfirmDialog, PromptDialog } from "../Modal";
 
@@ -17,6 +18,7 @@ function formatDuration(ms) {
 
 export default function Controls() {
   const { socket, state, dispatch } = useSocket();
+  const { t } = useI18n();
   const { isListening, isPaused, pendingAction, listeningSince, pausedElapsed } = state;
 
   const [elapsed, setElapsed] = useState(0);
@@ -70,7 +72,7 @@ export default function Controls() {
         disabled={pendingAction}
         onClick={handleToggle}
       >
-        {isListening ? "⏹ Stop" : state.selectedSessionId ? "▶ Resume" : "▶ Start"}
+        {isListening ? `⏹ ${t("stop")}` : state.selectedSessionId ? `▶ ${t("resume")}` : `▶ ${t("start")}`}
       </button>
 
       {!isListening && state.selectedSessionId && (
@@ -79,20 +81,20 @@ export default function Controls() {
             className={`${btnBase} text-gray-700! dark:text-gray-300! bg-gray-100/80 dark:bg-white/5 border border-gray-200/60 dark:border-indigo-500/10 hover:bg-gray-200/80 dark:hover:bg-white/10`}
             onClick={() => dispatch({ type: "DESELECT_SESSION" })}
           >
-            ⊕ New Session
+            ⊕ {t("newSession")}
           </button>
           <div className="flex items-center gap-0.5 ml-auto">
-            <button className={btnAction} title="Rename" onClick={() => {
+            <button className={btnAction} title={t("rename")} onClick={() => {
               const d = state.selectedSessionData;
               const title = d?.title || new Date(d?.started_at + "Z").toLocaleString("en-US");
               setRenameModal({ value: title });
             }}>
               🖊️
             </button>
-            <button className={btnAction} title="Export" onClick={() => window.open(getExportUrl(state.selectedSessionId), "_blank")}>
+            <button className={btnAction} title={t("export")} onClick={() => window.open(getExportUrl(state.selectedSessionId), "_blank")}>
               📥
             </button>
-            <button className={`${btnAction} hover:text-red-500! dark:hover:text-red-400!`} title="Delete" onClick={() => setConfirmDelete(true)}>
+            <button className={`${btnAction} hover:text-red-500! dark:hover:text-red-400!`} title={t("delete")} onClick={() => setConfirmDelete(true)}>
               🗑
             </button>
           </div>
@@ -105,7 +107,7 @@ export default function Controls() {
           disabled={pendingAction}
           onClick={() => emit("pause-listening")}
         >
-          ⏸ Pause
+          ⏸ {t("pause")}
         </button>
       )}
 
@@ -116,14 +118,14 @@ export default function Controls() {
             disabled={pendingAction}
             onClick={() => emit("resume-listening")}
           >
-            ▶ Resume
+            ▶ {t("resume")}
           </button>
           <button
             className={`${btnBase} text-gray-700! dark:text-gray-300! bg-gray-100/80 dark:bg-white/5 border border-gray-200/60 dark:border-indigo-500/10 hover:bg-gray-200/80 dark:hover:bg-white/10${loadingCls}`}
             disabled={pendingAction}
             onClick={handleNewMeeting}
           >
-            ⊕ New Meeting
+            ⊕ {t("newMeeting")}
           </button>
         </>
       )}
@@ -136,9 +138,9 @@ export default function Controls() {
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete session"
-        message="Are you sure you want to delete this session? This action cannot be undone."
-        confirmLabel="Delete"
+        title={t("deleteSession")}
+        message={t("deleteSessionConfirm")}
+        confirmLabel={t("delete")}
         confirmColor="red"
         onConfirm={async () => {
           const id = state.selectedSessionId;
@@ -151,7 +153,7 @@ export default function Controls() {
 
       <PromptDialog
         open={!!renameModal}
-        title="Rename session"
+        title={t("renameSession")}
         defaultValue={renameModal?.value || ""}
         onCancel={() => setRenameModal(null)}
         onConfirm={async (newTitle) => {

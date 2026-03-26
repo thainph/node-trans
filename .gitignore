@@ -4,3 +4,12 @@ node_modules/
 .claude
 dist/
 spec/
+
+# Electron
+release/
+ffmpeg-bin/
+*.dmg
+*.exe
+*.msi
+
+.DS_Store

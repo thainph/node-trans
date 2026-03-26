@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useI18n } from "../i18n/I18nContext";
 
 const overlay = "fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-[fadeIn_150ms_ease-out]";
 const panel = "bg-white/95 dark:bg-[#0d0f1a]/95 backdrop-blur-xl border border-gray-200/50 dark:border-indigo-500/15 rounded-2xl shadow-2xl shadow-indigo-500/10 w-full max-w-sm mx-4 p-5 animate-[scaleIn_150ms_ease-out]";
@@ -24,7 +25,8 @@ function ModalBase({ open, onClose, children }) {
   );
 }
 
-export function ConfirmDialog({ open, title, message, confirmLabel = "Delete", confirmColor = "red", onConfirm, onCancel }) {
+export function ConfirmDialog({ open, title, message, confirmLabel, confirmColor = "red", onConfirm, onCancel }) {
+  const { t } = useI18n();
   const colorMap = {
     red: "bg-linear-to-r from-rose-600 to-pink-500 text-white shadow-md shadow-rose-500/20",
     blue: "bg-linear-to-r from-indigo-600 to-cyan-500 text-white shadow-md shadow-indigo-500/20",
@@ -35,9 +37,9 @@ export function ConfirmDialog({ open, title, message, confirmLabel = "Delete", c
       <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-2">{title}</h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">{message}</p>
       <div className="flex justify-end gap-2">
-        <button className={btnCancel} onClick={onCancel}>Cancel</button>
+        <button className={btnCancel} onClick={onCancel}>{t("cancel")}</button>
         <button className={`${btnPrimary} ${colorMap[confirmColor] || colorMap.red}`} onClick={onConfirm}>
-          {confirmLabel}
+          {confirmLabel || t("delete")}
         </button>
       </div>
     </ModalBase>
@@ -45,6 +47,7 @@ export function ConfirmDialog({ open, title, message, confirmLabel = "Delete", c
 }
 
 export function PromptDialog({ open, title, defaultValue = "", placeholder = "", onConfirm, onCancel }) {
+  const { t } = useI18n();
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -72,9 +75,9 @@ export function PromptDialog({ open, title, defaultValue = "", placeholder = "",
           className="w-full px-3 py-2 rounded-xl text-sm bg-gray-50/80 dark:bg-white/5 text-gray-900 dark:text-gray-200 border border-gray-200/50 dark:border-indigo-500/10 outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 mb-4"
         />
         <div className="flex justify-end gap-2">
-          <button type="button" className={btnCancel} onClick={onCancel}>Cancel</button>
+          <button type="button" className={btnCancel} onClick={onCancel}>{t("cancel")}</button>
           <button type="submit" className={`${btnPrimary} bg-linear-to-r from-indigo-600 to-cyan-500 text-white shadow-md shadow-indigo-500/20`}>
-            Save
+            {t("save")}
           </button>
         </div>
       </form>

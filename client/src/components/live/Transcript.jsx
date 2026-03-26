@@ -1,10 +1,12 @@
 import { useRef, useEffect } from "react";
 import { useSocket } from "../../context/SocketContext";
+import { useI18n } from "../../i18n/I18nContext";
 import { getSpeakerIndex } from "../../utils/speakerColors";
 import Utterance from "./Utterance";
 
 export default function Transcript({ utterances, speakerColorMap, speakerAliases, partialResult }) {
   const { state } = useSocket();
+  const { t } = useI18n();
   const ref = useRef(null);
   const hasContent = utterances.length > 0 || partialResult?.originalText;
 
@@ -21,9 +23,7 @@ export default function Transcript({ utterances, speakerColorMap, speakerAliases
     >
       {!hasContent ? (
         <div className="text-gray-300 dark:text-gray-700 text-center py-15 text-sm">
-          {state.selectedSessionId
-            ? 'Press "Resume" to continue this session'
-            : 'Press "Start" to listen and translate audio'}
+          {state.selectedSessionId ? t("pressResume") : t("pressStart")}
         </div>
       ) : (
         <>
@@ -45,8 +45,9 @@ export default function Transcript({ utterances, speakerColorMap, speakerAliases
 }
 
 function PartialUtterance({ data, speakerColorMap }) {
+  const { t } = useI18n();
   const idx = getSpeakerIndex(data.speaker, speakerColorMap);
-  const speaker = data.speaker ? `Speaker ${data.speaker}` : "Speaker";
+  const speaker = data.speaker ? `${t("speaker")} ${data.speaker}` : t("speaker");
 
   return (
     <div className={`speaker-${idx} p-3 mb-1.5 rounded-xl bg-gray-50/80 dark:bg-white/3 border-l-3 border-l-(--speaker-color,#444) animate-pulse opacity-70`}>
