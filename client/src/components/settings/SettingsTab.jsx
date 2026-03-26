@@ -7,6 +7,8 @@ const selectCls = "bg-white/80 dark:bg-white/5 text-gray-700 dark:text-gray-300 
 export default function SettingsTab({ active }) {
   const [audioSource, setAudioSource] = useState("mic");
   const [targetLanguage, setTargetLanguage] = useState("vi");
+  const [micTargetLanguage, setMicTargetLanguage] = useState("");
+  const [systemTargetLanguage, setSystemTargetLanguage] = useState("");
   const [micDeviceIndex, setMicDeviceIndex] = useState("");
   const [systemDeviceIndex, setSystemDeviceIndex] = useState("");
   const [devices, setDevices] = useState([]);
@@ -21,6 +23,8 @@ export default function SettingsTab({ active }) {
       setFfmpegAvailable(devData.ffmpegAvailable !== false);
       setAudioSource(settings.audioSource || "mic");
       setTargetLanguage(settings.targetLanguage || "vi");
+      setMicTargetLanguage(settings.micTargetLanguage || "");
+      setSystemTargetLanguage(settings.systemTargetLanguage || "");
       setMicDeviceIndex(settings.micDeviceIndex != null ? String(settings.micDeviceIndex) : "");
       setSystemDeviceIndex(settings.systemDeviceIndex != null ? String(settings.systemDeviceIndex) : "");
     }).catch(() => {});
@@ -31,6 +35,8 @@ export default function SettingsTab({ active }) {
       await saveSettings({
         audioSource,
         targetLanguage,
+        micTargetLanguage: micTargetLanguage || null,
+        systemTargetLanguage: systemTargetLanguage || null,
         micDeviceIndex: micDeviceIndex ? parseInt(micDeviceIndex) : null,
         systemDeviceIndex: systemDeviceIndex ? parseInt(systemDeviceIndex) : null,
       });
@@ -95,16 +101,41 @@ export default function SettingsTab({ active }) {
         </div>
       )}
 
-      <div>
-        <label className="block text-xs text-gray-400 dark:text-gray-600 mb-1.5 font-medium uppercase tracking-wider">
-          Target Language:
-        </label>
-        <select className={selectCls} value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)}>
-          {LANGUAGE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-      </div>
+      {audioSource === "both" ? (
+        <>
+          <div>
+            <label className="block text-xs text-gray-400 dark:text-gray-600 mb-1.5 font-medium uppercase tracking-wider">
+              Mic → Target Language:
+            </label>
+            <select className={selectCls} value={micTargetLanguage || targetLanguage} onChange={(e) => setMicTargetLanguage(e.target.value)}>
+              {LANGUAGE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 dark:text-gray-600 mb-1.5 font-medium uppercase tracking-wider">
+              System Audio → Target Language:
+            </label>
+            <select className={selectCls} value={systemTargetLanguage || targetLanguage} onChange={(e) => setSystemTargetLanguage(e.target.value)}>
+              {LANGUAGE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+        </>
+      ) : (
+        <div>
+          <label className="block text-xs text-gray-400 dark:text-gray-600 mb-1.5 font-medium uppercase tracking-wider">
+            Target Language:
+          </label>
+          <select className={selectCls} value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)}>
+            {LANGUAGE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <button
         className="bg-linear-to-r from-indigo-600 to-cyan-500 text-white border-none px-6 py-2.5 rounded-xl cursor-pointer text-sm font-semibold transition-all duration-200 shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 active:scale-95"

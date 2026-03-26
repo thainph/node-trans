@@ -14,6 +14,8 @@ const initialState = {
   utterances: [],
   partialResult: null,
   speakerColorMap: new Map(),
+  listeningSince: null,
+  pausedElapsed: 0,
 };
 
 function reducer(state, action) {
@@ -35,6 +37,38 @@ function reducer(state, action) {
         statusClass = "";
       }
 
+      let listeningSince = state.listeningSince;
+      let pausedElapsed = state.pausedElapsed;
+
+      if (!isListening) {
+        // Stopped
+        listeningSince = null;
+        pausedElapsed = 0;
+      } else if (!state.isListening) {
+        // Just started — clear old transcript
+        return {
+          ...state,
+          isListening,
+          isPaused,
+          currentSessionId: d.sessionId,
+          pendingAction: false,
+          statusText,
+          statusClass,
+          partialResult: null,
+          utterances: [],
+          speakerColorMap: new Map(),
+          listeningSince: Date.now(),
+          pausedElapsed: 0,
+        };
+      } else if (isPaused && !state.isPaused) {
+        // Just paused — accumulate elapsed so far
+        pausedElapsed += listeningSince ? Date.now() - listeningSince : 0;
+        listeningSince = null;
+      } else if (!isPaused && state.isPaused) {
+        // Resumed
+        listeningSince = Date.now();
+      }
+
       return {
         ...state,
         isListening,
@@ -44,6 +78,8 @@ function reducer(state, action) {
         statusText,
         statusClass,
         partialResult: null,
+        listeningSince,
+        pausedElapsed,
       };
     }
     case "UTTERANCE": {
@@ -78,6 +114,8 @@ function reducer(state, action) {
         isPaused: false,
         statusText: "Disconnected",
         statusClass: "error",
+        listeningSince: null,
+        pausedElapsed: 0,
       };
     case "SET_PENDING":
       return { ...state, pendingAction: true };

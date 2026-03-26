@@ -1,10 +1,34 @@
+import { useState, useEffect } from "react";
 import { useSocket } from "../../context/SocketContext";
 
 const btnBase = "px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer border-none whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-white";
 
+function formatDuration(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
 export default function Controls() {
   const { socket, state, dispatch } = useSocket();
-  const { isListening, isPaused, pendingAction } = state;
+  const { isListening, isPaused, pendingAction, listeningSince, pausedElapsed } = state;
+
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!isListening) {
+      setElapsed(0);
+      return;
+    }
+    const calc = () => (listeningSince ? Date.now() - listeningSince : 0) + pausedElapsed;
+    setElapsed(calc());
+    if (!listeningSince) return; // paused — no ticking
+    const id = setInterval(() => setElapsed(calc()), 1000);
+    return () => clearInterval(id);
+  }, [isListening, listeningSince, pausedElapsed]);
 
   const emit = (event) => {
     if (pendingAction) return;
@@ -65,6 +89,12 @@ export default function Controls() {
             ⊕ New Meeting
           </button>
         </>
+      )}
+
+      {isListening && (
+        <span className="ml-auto text-base font-mono text-gray-500 dark:text-gray-400 tabular-nums">
+          {formatDuration(elapsed)}
+        </span>
       )}
     </div>
   );

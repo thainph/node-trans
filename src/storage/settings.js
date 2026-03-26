@@ -10,6 +10,8 @@ const DEFAULTS = {
   micDeviceIndex: null,
   systemDeviceIndex: null,
   targetLanguage: "vi",
+  micTargetLanguage: null,
+  systemTargetLanguage: null,
   languageHints: ["en"],
   port: 3000,
 };

@@ -36,6 +36,8 @@ io.on("connection", (socket) => {
       const settings = loadSettings();
       const audioSource = settings.audioSource;
       const targetLanguage = settings.targetLanguage;
+      const micTargetLanguage = settings.micTargetLanguage ?? targetLanguage;
+      const systemTargetLanguage = settings.systemTargetLanguage ?? targetLanguage;
       const languageHints = settings.languageHints || ["en"];
 
       // Resolve devices
@@ -79,7 +81,10 @@ io.on("connection", (socket) => {
       const deviceName = micDevice?.name || `Device ${micIndex}`;
 
       // Create history session
-      const dbSessionId = history.createSession(audioSource, targetLanguage, deviceName);
+      const historyTargetLang = audioSource === "both" && micTargetLanguage !== systemTargetLanguage
+        ? `${micTargetLanguage},${systemTargetLanguage}`
+        : (audioSource === "system" ? systemTargetLanguage : micTargetLanguage);
+      const dbSessionId = history.createSession(audioSource, historyTargetLang, deviceName);
 
       const state = {
         dbSessionId,
@@ -106,8 +111,9 @@ io.on("connection", (socket) => {
           socket.emit("error", { message: `Audio capture error (${source}): ${err.message}` });
         });
 
-        // Start Soniox session
-        const soniox = createSonioxSession({ targetLanguage, languageHints });
+        // Start Soniox session with per-source target language
+        const sourceTargetLang = source === "mic" ? micTargetLanguage : systemTargetLanguage;
+        const soniox = createSonioxSession({ targetLanguage: sourceTargetLang, languageHints });
 
         soniox.onPartial((partial) => {
           socket.emit("partial-result", { source, ...partial });
