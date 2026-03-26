@@ -101,9 +101,11 @@ export function createSession({ targetLanguage = "vi", languageHints = ["en"] } 
         if (tokens.length > 0) {
           const origTokens = tokens.filter((t) => t.translation_status !== "translation");
           const transTokens = tokens.filter((t) => t.translation_status === "translation");
+          const speaker = origTokens.find((t) => t.speaker)?.speaker || transTokens.find((t) => t.speaker)?.speaker || null;
           callback({
             originalText: origTokens.map((t) => t.text).join(""),
             translatedText: transTokens.map((t) => t.text).join(""),
+            speaker,
           });
         }
       });

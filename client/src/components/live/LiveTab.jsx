@@ -6,7 +6,6 @@ import { PromptDialog } from "../Modal";
 import SpeakerList from "../history/SpeakerList";
 import Controls from "./Controls";
 import Transcript from "./Transcript";
-import PartialResult from "./PartialResult";
 
 export default function LiveTab() {
   const { state, dispatch } = useSocket();
@@ -72,8 +71,7 @@ export default function LiveTab() {
           />
         </div>
       )}
-      <Transcript utterances={utterances} speakerColorMap={speakerColorMap} speakerAliases={selectedSessionData?.speakerAliases} />
-      <PartialResult data={state.partialResult} />
+      <Transcript utterances={utterances} speakerColorMap={speakerColorMap} speakerAliases={selectedSessionData?.speakerAliases} partialResult={state.partialResult} />
 
       <PromptDialog
         open={!!speakerModal}
