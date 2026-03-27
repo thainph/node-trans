@@ -46,6 +46,20 @@ export async function saveSettings(settings) {
   return res.json();
 }
 
+export async function fetchOverlaySettings() {
+  const res = await fetch(`${API}/settings/overlay`, NO_CACHE);
+  return res.json();
+}
+
+export async function saveOverlaySettings(settings) {
+  const res = await fetch(`${API}/settings/overlay`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+  return res.json();
+}
+
 export async function fetchDevices() {
   const res = await fetch(`${API}/devices`, NO_CACHE);
   return res.json();

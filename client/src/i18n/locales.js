@@ -59,6 +59,10 @@ export const en = {
   renameSession: "Rename session",
   renameSpeaker: "Rename {name}",
 
+  // Settings sections
+  sectionGeneral: "General",
+  sectionAudio: "Audio & Translation",
+
   // Settings
   sonioxApiKey: "Soniox API Key:",
   enterApiKey: "Enter your Soniox API key",
@@ -98,6 +102,25 @@ export const en = {
   errNoDevice: "No device configured for {source}",
   errAudioCapture: "Audio capture error ({source}): {detail}",
   errSoniox: "Soniox error: {detail}",
+
+  // Overlay
+  overlay: "Overlay",
+  overlaySettings: "Overlay Settings",
+  overlayOpacity: "Opacity:",
+  overlayFontScale: "Font Scale:",
+  overlayTextAlign: "Text Alignment:",
+  overlayBgColor: "Background:",
+  overlayFontFamily: "Font Family:",
+  overlayDisplayMode: "Display Mode:",
+  overlayAlignLeft: "Left",
+  overlayAlignCenter: "Center",
+  overlayAlignRight: "Right",
+  overlayBgDark: "Dark",
+  overlayBgLight: "Light",
+  overlayModeBoth: "Partial + Final",
+  overlayModeFinal: "Final only",
+  overlayModePartial: "Partial only",
+  overlayMaxLines: "Max Lines:",
 };
 
 export const vi = {
@@ -161,6 +184,10 @@ export const vi = {
   renameSession: "\u0110\u1ED5i t\u00EAn phi\u00EAn",
   renameSpeaker: "\u0110\u1ED5i t\u00EAn {name}",
 
+  // Settings sections
+  sectionGeneral: "C\u00E0i \u0111\u1EB7t chung",
+  sectionAudio: "\u00C2m thanh & D\u1ECBch thu\u1EADt",
+
   // Settings
   sonioxApiKey: "Soniox API Key:",
   enterApiKey: "Nh\u1EADp Soniox API key c\u1EE7a b\u1EA1n",
@@ -200,4 +227,23 @@ export const vi = {
   errNoDevice: "Ch\u01B0a c\u1EA5u h\u00ECnh thi\u1EBFt b\u1ECB cho {source}",
   errAudioCapture: "L\u1ED7i thu \u00E2m ({source}): {detail}",
   errSoniox: "L\u1ED7i Soniox: {detail}",
+
+  // Overlay
+  overlay: "Overlay",
+  overlaySettings: "C\u00E0i \u0111\u1EB7t Overlay",
+  overlayOpacity: "\u0110\u1ED9 m\u1EDD:",
+  overlayFontScale: "C\u1EE1 ch\u1EEF:",
+  overlayTextAlign: "C\u0103n ch\u1EEF:",
+  overlayBgColor: "N\u1EC1n:",
+  overlayFontFamily: "Font ch\u1EEF:",
+  overlayDisplayMode: "Ch\u1EBF \u0111\u1ED9 hi\u1EC3n th\u1ECB:",
+  overlayAlignLeft: "Tr\u00E1i",
+  overlayAlignCenter: "Gi\u1EEFa",
+  overlayAlignRight: "Ph\u1EA3i",
+  overlayBgDark: "T\u1ED1i",
+  overlayBgLight: "S\u00E1ng",
+  overlayModeBoth: "T\u1EA1m th\u1EDDi + Ho\u00E0n ch\u1EC9nh",
+  overlayModeFinal: "Ch\u1EC9 ho\u00E0n ch\u1EC9nh",
+  overlayModePartial: "Ch\u1EC9 t\u1EA1m th\u1EDDi",
+  overlayMaxLines: "S\u1ED1 d\u00F2ng t\u1ED1i \u0111a:",
 };

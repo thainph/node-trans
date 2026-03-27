@@ -19,5 +19,11 @@ export default defineConfig({
     outDir: "../dist",
     emptyOutDir: true,
     sourcemap: false,
+    rollupOptions: {
+      input: {
+        main: "client/index.html",
+        overlay: "client/overlay.html",
+      },
+    },
   },
 });

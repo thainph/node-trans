@@ -1,13 +1,13 @@
 {
   "name": "node-trans",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Real-time audio translation app using Soniox API",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "npm run rebuild:node && npm run build && node src/server.js",
     "rebuild:node": "npm rebuild better-sqlite3",
-    "dev:server": "npm run rebuild:node && node --watch src/server.js",
+    "dev:server": "node --watch src/server.js",
     "dev:client": "vite --config client/vite.config.js",
     "dev": "npm run rebuild:node && npx concurrently \"npm:dev:server\" \"npm:dev:client\"",
     "build": "vite build --config client/vite.config.js",

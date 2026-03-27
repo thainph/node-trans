@@ -17,6 +17,14 @@ const DEFAULTS = {
   languageHints: ["en"],
   port: 3000,
   sonioxApiKey: null,
+  overlay: {
+    opacity: 0.8,
+    scale: 1,
+    displayMode: "both",
+    textAlign: "left",
+    bgColor: "dark",
+    maxLines: 5,
+  },
 };
 
 export function loadSettings() {
