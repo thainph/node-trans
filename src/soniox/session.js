@@ -1,7 +1,7 @@
 import { RealtimeUtteranceBuffer, SonioxNodeClient } from "@soniox/node";
 import { PassThrough } from "stream";
 
-export function createSession({ targetLanguage = "vi", languageHints = ["en"], apiKey } = {}) {
+export function createSession({ targetLanguage = "vi", languageHints = ["en"], apiKey, context = null } = {}) {
   const clientOpts = apiKey ? { api_key: apiKey } : {};
   const client = new SonioxNodeClient(clientOpts);
   const config = {
@@ -18,6 +18,10 @@ export function createSession({ targetLanguage = "vi", languageHints = ["en"], a
       target_language: targetLanguage,
     },
   };
+
+  if (context) {
+    config.context = { text: context };
+  }
 
   const session = client.realtime.stt(config);
   const buffer = new RealtimeUtteranceBuffer();

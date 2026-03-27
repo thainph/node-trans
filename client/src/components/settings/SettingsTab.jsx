@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSocket } from "../../context/SocketContext";
 import { fetchSettings, fetchDevices, saveSettings } from "../../utils/api";
-import { LANGUAGE_OPTIONS } from "../../utils/constants";
+import { LANGUAGE_OPTIONS, CONTEXT_PRESETS } from "../../utils/constants";
 import { useI18n } from "../../i18n/I18nContext";
 import OverlaySettings from "./OverlaySettings";
 
@@ -27,6 +27,8 @@ export default function SettingsTab({ active }) {
   const [devices, setDevices] = useState([]);
   const [ffmpegAvailable, setFfmpegAvailable] = useState(true);
   const [sonioxApiKey, setSonioxApiKey] = useState("");
+  const [defaultContext, setDefaultContext] = useState("none");
+  const [defaultCustomContext, setDefaultCustomContext] = useState("");
 
   useEffect(() => {
     if (!active) return;
@@ -40,6 +42,8 @@ export default function SettingsTab({ active }) {
       setMicDeviceIndex(settings.micDeviceIndex != null ? String(settings.micDeviceIndex) : "");
       setSystemDeviceIndex(settings.systemDeviceIndex != null ? String(settings.systemDeviceIndex) : "");
       setSonioxApiKey(settings.sonioxApiKey || "");
+      setDefaultContext(settings.defaultContext || "none");
+      setDefaultCustomContext(settings.defaultCustomContext || "");
     }).catch(() => {});
   }, [active]);
 
@@ -59,6 +63,8 @@ export default function SettingsTab({ active }) {
         micDeviceIndex: micDeviceIndex ? parseInt(micDeviceIndex) : null,
         systemDeviceIndex: systemDeviceIndex ? parseInt(systemDeviceIndex) : null,
         sonioxApiKey: sonioxApiKey || null,
+        defaultContext,
+        defaultCustomContext: defaultCustomContext || "",
       });
       dispatch({ type: "TOAST", payload: { message: t("saved"), type: "success" } });
       setTimeout(() => dispatch({ type: "TOAST", payload: { message: t("connected"), type: "" } }), 2000);
@@ -188,6 +194,36 @@ export default function SettingsTab({ active }) {
             </div>
           )}
 
+        </div>
+      </div>
+
+      {/* Section: Default Context */}
+      <div className={cardCls}>
+        <p className={cardTitleCls}>{t("context")}</p>
+        <div className="space-y-3">
+          <div>
+            <label className={labelCls}>{t("defaultContext")}</label>
+            <div className="flex flex-wrap gap-2 items-center">
+              <select
+                className={`${selectCls} max-w-xs`}
+                value={defaultContext}
+                onChange={(e) => setDefaultContext(e.target.value)}
+              >
+                {CONTEXT_PRESETS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              {defaultContext === "custom" && (
+                <input
+                  className={`${selectCls} flex-1 min-w-[280px]`}
+                  placeholder={t("contextPlaceholder")}
+                  value={defaultCustomContext}
+                  onChange={(e) => setDefaultCustomContext(e.target.value)}
+                />
+              )}
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">{t("defaultContextHint")}</p>
+          </div>
         </div>
       </div>
 

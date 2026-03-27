@@ -12,10 +12,11 @@
     "dev": "npm run rebuild:node && npx concurrently \"npm:dev:server\" \"npm:dev:client\"",
     "build": "vite build --config client/vite.config.js",
     "electron:dev": "npm run electron:rebuild && concurrently \"npm:dev:client\" \"electron electron/main.js\"",
-    "electron:rebuild": "npx @electron/rebuild -w better-sqlite3 --force",
+    "electron:rebuild": "electron-builder install-app-deps",
     "electron:build": "npm run build && electron-builder --config electron-builder.config.js",
     "electron:build:mac": "npm run build && electron-builder --config electron-builder.config.js --mac",
     "electron:build:win": "npm run build && electron-builder --config electron-builder.config.js --win",
+    "postinstall": "electron-builder install-app-deps",
     "download:ffmpeg": "node scripts/download-ffmpeg.js"
   },
   "keywords": [],
@@ -35,7 +36,6 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
     "@vitejs/plugin-react": "^6.0.1",
-    "@electron/rebuild": "^4.0.3",
     "concurrently": "^9.2.1",
     "electron": "^41.0.4",
     "electron-builder": "^26.8.1",

@@ -35,6 +35,7 @@ export default function LiveTab() {
       duration: durationText,
       source: SOURCE_LABELS_FULL[d.audio_source] || d.audio_source,
       target: LANG_LABELS_FULL[d.target_language] || d.target_language,
+      context: d.context || "—",
       uttCount: utts.length,
       speakers,
       aliases,
@@ -47,6 +48,7 @@ export default function LiveTab() {
         [t("duration"), sessionInfo.duration],
         [t("source"), sessionInfo.source],
         [t("target"), sessionInfo.target],
+        [t("context"), sessionInfo.context],
         [t("utterances"), sessionInfo.uttCount],
         [t("speakers"), sessionInfo.speakers.length || "—"],
       ]

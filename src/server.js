@@ -79,10 +79,11 @@ io.on("connection", (socket) => {
       }
 
       const resumeSessionId = opts?.sessionId;
-      let audioSource, micTargetLanguage, systemTargetLanguage;
+      const requestedContext = typeof opts?.context === "string" && opts.context.trim() ? opts.context.trim() : null;
+      let audioSource, micTargetLanguage, systemTargetLanguage, sessionContext;
 
       if (resumeSessionId) {
-        // Resume existing session
+        // Resume existing session and re-use prior context unless overridden
         const existing = history.getSession(resumeSessionId);
         if (!existing || !existing.ended_at) {
           socket.emit("error", { key: "errSessionNotFound" });
@@ -99,11 +100,16 @@ io.on("connection", (socket) => {
           micTargetLanguage = targetLang;
           systemTargetLanguage = targetLang;
         }
+        sessionContext = requestedContext || existing.context || null;
+        if (requestedContext && requestedContext !== existing.context) {
+          history.updateSessionContext(resumeSessionId, requestedContext);
+        }
       } else {
         audioSource = settings.audioSource;
         const targetLanguage = settings.targetLanguage;
         micTargetLanguage = settings.micTargetLanguage ?? targetLanguage;
         systemTargetLanguage = settings.systemTargetLanguage ?? targetLanguage;
+        sessionContext = requestedContext || null;
       }
 
       const languageHints = settings.languageHints || ["en"];
@@ -153,7 +159,7 @@ io.on("connection", (socket) => {
         const historyTargetLang = audioSource === "both" && micTargetLanguage !== systemTargetLanguage
           ? `${micTargetLanguage},${systemTargetLanguage}`
           : (audioSource === "system" ? systemTargetLanguage : micTargetLanguage);
-        dbSessionId = history.createSession(audioSource, historyTargetLang, deviceName);
+        dbSessionId = history.createSession(audioSource, historyTargetLang, deviceName, sessionContext);
       }
 
       const state = {
@@ -183,7 +189,7 @@ io.on("connection", (socket) => {
 
         // Start Soniox session with per-source target language
         const sourceTargetLang = source === "mic" ? micTargetLanguage : systemTargetLanguage;
-        const soniox = createSonioxSession({ targetLanguage: sourceTargetLang, languageHints, apiKey: settings.sonioxApiKey || undefined });
+        const soniox = createSonioxSession({ targetLanguage: sourceTargetLang, languageHints, apiKey: settings.sonioxApiKey || undefined, context: sessionContext });
 
         soniox.onPartial((partial) => {
           socket.emit("partial-result", { source, ...partial });

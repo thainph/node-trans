@@ -100,6 +100,13 @@ router.patch("/sessions/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
+router.patch("/sessions/:id/context", async (req, res) => {
+  const { updateSessionContext } = await lazyHistory();
+  const { context } = req.body;
+  updateSessionContext(req.params.id, context ?? null);
+  res.json({ ok: true });
+});
+
 router.put("/sessions/:id/speakers/:speaker", async (req, res) => {
   const { setSpeakerAlias } = await lazyHistory();
   const { alias } = req.body;

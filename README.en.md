@@ -70,35 +70,141 @@ API key set in Settings takes priority over `.env`.
 
 ## System Audio Capture
 
-To capture system audio (e.g. Google Meet, Zoom calls), you need a virtual audio driver.
+To capture system audio (Google Meet, Zoom, YouTube, etc.), your computer needs a **virtual audio driver** — a virtual sound device that acts as a bridge between speakers and a microphone input, allowing the app to hear what's playing.
+
+> **Why is this needed?** By default, the OS doesn't allow apps to directly tap into audio output. A virtual driver creates an intermediary device: you route your output to it, and the app reads input from that same device.
+
+---
 
 ### macOS — BlackHole
 
+**BlackHole** is a free, widely-used virtual audio driver for macOS.
+
+#### Step 1 — Install BlackHole
+
+**Option A: Homebrew (recommended)**
 ```bash
 brew install blackhole-2ch
-# Restart after installation
 ```
 
-After installing BlackHole, create an **Aggregate Device** in Audio MIDI Setup:
+**Option B: Direct download**
+- Go to [existential.audio/blackhole](https://existential.audio/blackhole/) → choose **BlackHole 2ch** → enter your email → download the `.pkg` file → run the installer
 
-1. Open **Audio MIDI Setup** (Spotlight → "Audio MIDI Setup")
-2. Click **"+"** at the bottom left → **Create Aggregate Device**
-3. Check **BlackHole 2ch** + **your speaker** (e.g. MacBook Pro Speakers)
-4. Go to **System Settings → Sound → Output** → select the Aggregate Device
+After installation, **restart your Mac** to load the driver.
 
-The app auto-detects BlackHole for capture.
+#### Step 2 — Verify installation
+
+1. Open **System Settings → Sound**
+2. In both the **Output** and **Input** tabs, you should see **BlackHole 2ch** in the list
+3. If not visible → restart your Mac
+
+#### Step 3 — Create an Aggregate Device (to hear audio AND capture simultaneously)
+
+> This step is important: if you only set BlackHole as your output, your speakers will go silent. An Aggregate Device routes audio to your speakers **and** BlackHole at the same time.
+
+1. Open **Audio MIDI Setup**
+   - Spotlight (⌘ Space) → type "Audio MIDI Setup" → Enter
+   - Or: `/Applications/Utilities/Audio MIDI Setup.app`
+
+2. Click **"+"** at the bottom left → select **Create Aggregate Device**
+
+3. In the device list on the right, **check both**:
+   - ✅ **BlackHole 2ch**
+   - ✅ **Your speakers** (e.g. "MacBook Pro Speakers", "External Headphones")
+
+4. Give it a memorable name, e.g. **"Node Trans Aggregate"**
+   - Double-click the name "Aggregate Device" in the left column to rename it
+
+5. Set the **clock source** to your main speakers (not BlackHole) to avoid audio crackling
+
+#### Step 4 — Set the Aggregate Device as your default output
+
+1. Go to **System Settings → Sound → Output**
+2. Select **"Node Trans Aggregate"** (or whatever you named it)
+3. Audio will now play through your speakers while BlackHole captures it simultaneously
+
+#### Step 5 — Configure in the app
+
+1. Open the **Settings** tab in Node Trans
+2. **Audio Source** → select **"System Audio"** or **"Both"** (if you want to translate both mic and system audio)
+3. **System Audio Device** → select **"BlackHole 2ch"**
+4. Press **Start** — the app will begin translating system audio
+
+> **When done:** Remember to switch your Output back to your original speakers (MacBook Pro Speakers) in System Settings → Sound, as the Aggregate Device can introduce a small audio delay.
+
+#### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| BlackHole not showing in device list | Restart your Mac; reinstall if still missing |
+| Audio delay or echo | In Audio MIDI Setup, set Clock Source to your main speakers |
+| App doesn't detect BlackHole | Restart the app; verify the correct System Audio Device is selected |
+| No audio after setup | Check System Settings → Sound → Output, reselect the Aggregate Device |
+
+---
 
 ### Windows — VB-CABLE
 
-1. Download **VB-CABLE** (free) from [vb-audio.com/Cable](https://vb-audio.com/Cable/)
-2. Install and restart your computer
-3. Go to **Sound Settings → Output** → select **CABLE Input** as output device
-4. In the app, go to **Settings** → set **Audio Source** to "System Audio" or "Both"
-5. Select **CABLE Output (VB-Audio Virtual Cable)** in the **System Audio Device** dropdown
+**VB-CABLE** is a free virtual audio driver for Windows that creates a pair of devices: **CABLE Input** (virtual output) and **CABLE Output** (virtual input).
 
-Alternatively, enable **Stereo Mix** in Sound Settings (if your sound card supports it):
-- Go to **Sound Settings → Recording** → right-click → **Show Disabled Devices** → enable **Stereo Mix**
-- In the app, select Stereo Mix as the System Audio Device
+#### Step 1 — Download and install VB-CABLE
+
+1. Go to [vb-audio.com/Cable](https://vb-audio.com/Cable/)
+2. Scroll to **"Download VB-CABLE Driver"** → click to download
+3. Extract the `.zip` → run **`VBCABLE_Setup_x64.exe`** (64-bit) as **Administrator**
+   - Right-click → **Run as administrator**
+4. Click **"Install Driver"** → wait for completion
+5. **Restart your computer** — required for the driver to work
+
+#### Step 2 — Verify installation
+
+1. Right-click the speaker icon in the taskbar → **Sound settings**
+2. Under **Output**, you should see **"CABLE Input (VB-Audio Virtual Cable)"**
+3. Under **Input**, you should see **"CABLE Output (VB-Audio Virtual Cable)"**
+
+#### Step 3 — Route your output to CABLE Input
+
+1. Go to **Settings → System → Sound** (or right-click speaker icon → Open Sound settings)
+2. Under **Output** → select **"CABLE Input (VB-Audio Virtual Cable)"**
+
+> ⚠️ After this step, your speakers will go **silent** because audio is now routed into CABLE. See Step 4 to hear audio again.
+
+#### Step 4 — Enable "Listen to this device" to hear speakers simultaneously (optional)
+
+If you want to hear audio while the app captures it:
+
+1. Right-click the speaker icon → **Sounds** → **Recording** tab
+2. Double-click **"CABLE Output (VB-Audio Virtual Cable)"**
+3. **Listen** tab → check **"Listen to this device"**
+4. **Playback through this device** → select your actual speakers/headphones
+5. Click OK → Apply
+
+#### Step 5 — Configure in the app
+
+1. Open the **Settings** tab in Node Trans
+2. **Audio Source** → select **"System Audio"** or **"Both"**
+3. **System Audio Device** → select **"CABLE Output (VB-Audio Virtual Cable)"**
+4. Press **Start**
+
+#### Alternative — Stereo Mix (no extra software)
+
+Some Windows computers have a built-in **Stereo Mix** feature (commonly available on Realtek audio chipsets):
+
+1. Right-click the speaker icon → **Sounds** → **Recording** tab
+2. Right-click in the empty area → select **"Show Disabled Devices"**
+3. If **Stereo Mix** appears → right-click → **Enable**
+4. In the app, select **Stereo Mix** as the System Audio Device
+
+> Stereo Mix doesn't require Step 3 (no need to change Output device), but capture quality may be lower than VB-CABLE.
+
+#### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| CABLE not showing after install | Restart your PC; verify you ran the installer as Administrator |
+| No audio after selecting CABLE as output | Enable "Listen to this device" as described in Step 4 |
+| App doesn't see CABLE Output in dropdown | Restart the app; verify the driver is correctly installed |
+| High audio latency | Open VB-CABLE Control Panel → increase the buffer size |
 
 ## Usage
 

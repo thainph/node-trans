@@ -40,6 +40,7 @@ const initialState = {
   sessionListVersion: 0,
   overlayVisible: false,
   overlaySettings: loadOverlaySettings(),
+  activeContext: null,
 };
 
 function reducer(state, action) {
@@ -69,6 +70,20 @@ function reducer(state, action) {
         // Stopped
         listeningSince = null;
         pausedElapsed = 0;
+        return {
+          ...state,
+          isListening,
+          isPaused,
+          currentSessionId: null,
+          pendingAction: false,
+          statusKey,
+          statusParams,
+          statusClass,
+          partialResults: {},
+          listeningSince,
+          pausedElapsed,
+          activeContext: null,
+        };
       } else if (!state.isListening) {
         // Just started — keep utterances if resuming a selected session
         const isResume = state.selectedSessionId && state.selectedSessionId === d.sessionId;
@@ -213,6 +228,8 @@ function reducer(state, action) {
     }
     case "OVERLAY_CLOSED":
       return { ...state, overlayVisible: false };
+    case "SET_CONTEXT":
+      return { ...state, activeContext: action.payload };
     default:
       return state;
   }

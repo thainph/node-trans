@@ -17,6 +17,8 @@ const DEFAULTS = {
   languageHints: ["en"],
   port: 3000,
   sonioxApiKey: null,
+  defaultContext: "none",
+  defaultCustomContext: "",
   overlay: {
     opacity: 0.8,
     scale: 1,

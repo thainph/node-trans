@@ -29,7 +29,8 @@ export function getDb() {
       ended_at TEXT,
       audio_source TEXT NOT NULL,
       target_language TEXT NOT NULL DEFAULT 'vi',
-      device_name TEXT
+      device_name TEXT,
+      context TEXT
     );
 
     CREATE TABLE IF NOT EXISTS utterances (
@@ -59,15 +60,19 @@ export function getDb() {
   if (!cols.some((c) => c.name === "title")) {
     db.exec("ALTER TABLE sessions ADD COLUMN title TEXT");
   }
+  // Migrate: add context column if missing
+  if (!cols.some((c) => c.name === "context")) {
+    db.exec("ALTER TABLE sessions ADD COLUMN context TEXT");
+  }
 
   return db;
 }
 
-export function createSession(audioSource, targetLanguage, deviceName) {
+export function createSession(audioSource, targetLanguage, deviceName, context = null) {
   getDb();
   const result = db.prepare(
-    "INSERT INTO sessions (audio_source, target_language, device_name) VALUES (?, ?, ?)"
-  ).run(audioSource, targetLanguage, deviceName || null);
+    "INSERT INTO sessions (audio_source, target_language, device_name, context) VALUES (?, ?, ?, ?)"
+  ).run(audioSource, targetLanguage, deviceName || null, context || null);
   return result.lastInsertRowid;
 }
 
@@ -79,6 +84,11 @@ export function endSession(sessionId) {
 export function reopenSession(sessionId) {
   getDb();
   db.prepare("UPDATE sessions SET ended_at = NULL WHERE id = ?").run(sessionId);
+}
+
+export function updateSessionContext(sessionId, context) {
+  getDb();
+  db.prepare("UPDATE sessions SET context = ? WHERE id = ?").run(context || null, sessionId);
 }
 
 export function addUtterance(sessionId, data) {

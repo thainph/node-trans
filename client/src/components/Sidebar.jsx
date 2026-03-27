@@ -27,6 +27,10 @@ function SidebarItem({ session, isActive, isSelected, disabled, selectMode, chec
   if (hasCustomTitle) meta.push(`${date} ${time}`);
   if (duration) meta.push(duration);
   meta.push(source);
+  if (session.context) {
+    const ctxText = session.context.length > 18 ? `${session.context.slice(0, 18)}...` : session.context;
+    meta.push(ctxText);
+  }
   if (session.utterance_count > 0) meta.push(`${session.utterance_count} ${t("msgs")}`);
 
   return (

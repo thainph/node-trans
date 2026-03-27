@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSocket } from "../../context/SocketContext";
 import { useI18n } from "../../i18n/I18nContext";
-import { deleteSession, renameSession, getExportUrl } from "../../utils/api";
+import { deleteSession, renameSession, getExportUrl, fetchSettings } from "../../utils/api";
+import { CONTEXT_PRESETS } from "../../utils/constants";
 import { ConfirmDialog, PromptDialog } from "../Modal";
 
 const btnBase = "px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer border-none whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-white";
@@ -24,6 +25,24 @@ export default function Controls() {
   const [elapsed, setElapsed] = useState(0);
   const [renameModal, setRenameModal] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [contextPreset, setContextPreset] = useState("none");
+  const [customContext, setCustomContext] = useState("");
+  const defaultCtx = useRef({ preset: "none", custom: "" });
+
+  useEffect(() => {
+    fetchSettings()
+      .then((s) => {
+        defaultCtx.current = {
+          preset: s.defaultContext || "none",
+          custom: s.defaultCustomContext || "",
+        };
+        if (!state.selectedSessionId) {
+          setContextPreset(defaultCtx.current.preset);
+          setCustomContext(defaultCtx.current.custom);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!isListening) {
@@ -37,36 +56,89 @@ export default function Controls() {
     return () => clearInterval(id);
   }, [isListening, listeningSince, pausedElapsed]);
 
-  const emit = (event) => {
+  useEffect(() => {
+    const selected = state.selectedSessionData;
+    if (selected && selected.context) {
+      const preset = CONTEXT_PRESETS.find((p) => p.value !== "custom" && p.text === selected.context);
+      if (preset) {
+        setContextPreset(preset.value);
+        setCustomContext("");
+      } else {
+        setContextPreset("custom");
+        setCustomContext(selected.context);
+      }
+    } else {
+      setContextPreset(defaultCtx.current.preset);
+      setCustomContext(defaultCtx.current.custom);
+    }
+  }, [state.selectedSessionId, state.selectedSessionData]);
+
+  const activeContext = () => {
+    if (contextPreset === "custom") {
+      return customContext.trim() || null;
+    }
+    const preset = CONTEXT_PRESETS.find((p) => p.value === contextPreset);
+    return preset && preset.text ? preset.text : null;
+  };
+
+  const emit = (event, payload = {}) => {
     if (pendingAction) return;
     dispatch({ type: "SET_PENDING" });
-    socket.emit(event);
+    socket.emit(event, payload);
   };
 
   const handleToggle = () => {
     if (pendingAction) return;
     dispatch({ type: "SET_PENDING" });
+    const context = activeContext();
     if (isListening) {
       socket.emit("stop-listening");
     } else if (state.selectedSessionId) {
-      socket.emit("start-listening", { sessionId: state.selectedSessionId });
+      dispatch({ type: "SET_CONTEXT", payload: context });
+      socket.emit("start-listening", { sessionId: state.selectedSessionId, context });
     } else {
-      socket.emit("start-listening");
+      dispatch({ type: "SET_CONTEXT", payload: context });
+      socket.emit("start-listening", { context });
     }
   };
 
   const handleNewMeeting = () => {
     if (pendingAction) return;
     dispatch({ type: "SET_PENDING" });
+    const context = activeContext();
+    dispatch({ type: "SET_CONTEXT", payload: context });
     socket.emit("stop-listening");
     dispatch({ type: "CLEAR_TRANSCRIPT" });
-    setTimeout(() => socket.emit("start-listening"), 200);
+    setTimeout(() => socket.emit("start-listening", { context }), 200);
   };
 
   const loadingCls = pendingAction ? " btn-loading" : "";
 
   return (
-    <div className="py-2.5 flex items-center gap-3 flex-wrap">
+    <>
+      <div className="flex flex-wrap gap-2 items-center mb-2">
+        <label className="text-xs text-gray-400 dark:text-gray-600 uppercase tracking-wider font-medium">
+          {t("context")}
+        </label>
+        <select
+          className="bg-white/80 dark:bg-white/5 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-indigo-500/10 px-3 py-2 rounded-xl text-sm outline-none"
+          value={contextPreset}
+          onChange={(e) => setContextPreset(e.target.value)}
+        >
+          {CONTEXT_PRESETS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+        {contextPreset === "custom" && (
+          <input
+            className="flex-1 min-w-[320px] bg-white/80 dark:bg-white/5 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-indigo-500/10 px-3 py-2 rounded-xl text-sm outline-none"
+            placeholder={t("contextPlaceholder")}
+            value={customContext}
+            onChange={(e) => setCustomContext(e.target.value)}
+          />
+        )}
+      </div>
+      <div className="py-2.5 flex items-center gap-3 flex-wrap">
       <button
         className={`${btnBase} ${isListening ? "bg-linear-to-r from-rose-600 to-pink-500 shadow-lg shadow-rose-500/25 hover:shadow-xl hover:shadow-rose-500/30" : "bg-linear-to-r from-indigo-600 to-cyan-500 shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30"}${loadingCls}`}
         disabled={pendingAction}
@@ -173,5 +245,6 @@ export default function Controls() {
         }}
       />
     </div>
+  </>
   );
 }

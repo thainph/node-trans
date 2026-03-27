@@ -47,10 +47,14 @@ export default {
     },
   },
   win: {
-    target: ["nsis", "portable"],
+    target: [
+      { target: "nsis", arch: ["x64"] },
+      { target: "portable", arch: ["x64"] },
+    ],
   },
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
   },
 };
+
