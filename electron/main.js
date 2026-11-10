@@ -100,7 +100,9 @@ function createOverlayWindow() {
     resizable: true,
     skipTaskbar: true,
     focusable: true,
-    visibleOnAllWorkspaces: true,
+    // macOS: an NSPanel can float above full-screen apps without changing the app's
+    // activation policy (see setVisibleOnAllWorkspaces below)
+    ...(process.platform === "darwin" && { type: "panel" }),
     webPreferences: {
       preload: path.join(__dirname, "overlay-preload.js"),
       contextIsolation: true,
@@ -110,7 +112,10 @@ function createOverlayWindow() {
 
   // Keep always on top even when other apps go fullscreen (macOS)
   overlayWindow.setAlwaysOnTop(true, "floating");
-  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // skipTransformProcessType: by default Electron turns the app into a UIElement app here,
+  // which removes it from the Dock and Cmd+Tab (and it often never switches back).
+  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+  if (process.platform === "darwin" && !app.dock.isVisible()) app.dock.show();
 
   if (isDev) {
     overlayWindow.loadURL("http://localhost:5173/overlay.html");
