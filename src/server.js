@@ -337,7 +337,14 @@ io.on("connection", (socket) => {
             ? createSTT({ ...sessionOpts, hfToken: settings.hfToken })
             : createSTT(sessionOpts);
         } else {
-          stt = createSTT({ targetLanguage: sourceTargetLang, languageHints, apiKey: settings.sonioxApiKey || undefined, context: sessionContext });
+          // Hints only bias recognition. A fixed ["en"] skews mixed ja/vi meetings, so derive
+          // them from the chosen source language (plus the target, which is often spoken too);
+          // on auto-detect, send none and let Soniox identify the language.
+          const sourceLang = source === "mic" ? settings.micWhisperLanguage : settings.systemWhisperLanguage;
+          const sonioxHints = sourceLang && sourceLang !== "auto"
+            ? [...new Set([sourceLang, sourceTargetLang])]
+            : [];
+          stt = createSTT({ targetLanguage: sourceTargetLang, languageHints: sonioxHints, apiKey: settings.sonioxApiKey || undefined, context: sessionContext });
         }
 
         // In "both" mode, prefix speaker IDs with source to avoid collisions
