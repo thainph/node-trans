@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+  # Manual trigger to test builds without tagging (release job is skipped)
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -39,6 +41,9 @@ jobs:
             npx electron-builder --config electron-builder.config.js --mac --publish never
           else
             echo "No signing certificate — building unsigned app"
+            # Empty secrets still arrive as empty-string env vars, which
+            # electron-builder treats as set (CSC_LINK="" → "not a file").
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
             export CSC_IDENTITY_AUTO_DISCOVERY=false
             npx electron-builder --config electron-builder.config.js --mac --publish never
           fi
@@ -130,6 +135,7 @@ jobs:
   # ─────────────────────────────────────────────
   release:
     needs: [build-mac, build-win, build-linux]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
