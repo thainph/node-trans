@@ -7,9 +7,53 @@
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body, #root { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        user-select: none;
+        -webkit-user-select: none;
+      }
       ::-webkit-scrollbar { width: 4px; }
       ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+      ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.35); border-radius: 2px; }
+
+      /* Hover-revealed drag bar + close button */
+      .hud-bar {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 0 6px;
+        opacity: 0;
+        transition: opacity 150ms ease-out;
+        touch-action: none;
+        z-index: 1;
+      }
+      .hud:hover .hud-bar, .hud-bar[data-dragging="true"] { opacity: 1; }
+      .hud-close {
+        width: 20px; height: 20px;
+        display: flex; align-items: center; justify-content: center;
+        border: none; border-radius: 50%;
+        background: var(--hud-fill);
+        color: var(--hud-muted);
+        cursor: default;
+      }
+      .hud-close:hover { background: var(--hud-fill-strong); color: var(--hud-text); }
+      .hud-close:focus-visible { outline: 2px solid var(--hud-muted); outline-offset: 1px; }
+
+      /* New lines: partials fade in, finals settle from partial opacity */
+      /* No `to` frame: animate towards the element's own (inline) opacity */
+      @keyframes hud-in { from { opacity: 0; } }
+      @keyframes hud-settle { from { opacity: 0.7; } }
+      .hud-line { animation: hud-settle 150ms ease-out; }
+      .hud-line[data-partial="true"] { animation-name: hud-in; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .hud-bar { transition: none; }
+        .hud-line { animation: none; }
+      }
     </style>
   </head>
   <body>

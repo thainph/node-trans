@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useSocketActions, useSession, useTranscript } from "../../context/SocketContext";
 import { useI18n } from "../../i18n/I18nContext";
 import { setSpeakerAlias } from "../../utils/api";
@@ -6,10 +6,10 @@ import { SOURCE_LABELS_FULL, LANG_LABELS_FULL, CONTEXT_PRESETS } from "../../uti
 import { PromptDialog } from "../Modal";
 import SpeakerList from "../history/SpeakerList";
 import Controls from "./Controls";
+import StatusBar from "../StatusBar";
 import Transcript from "./Transcript";
 
-const lbl = "text-[10px] text-gray-400 dark:text-gray-600 uppercase tracking-wider font-medium whitespace-nowrap";
-const val = "text-xs text-gray-700 dark:text-gray-300";
+const Dot = () => <span className="text-label-3" aria-hidden="true">·</span>;
 
 export default function LiveTab() {
   const { dispatch } = useSocketActions();
@@ -17,6 +17,17 @@ export default function LiveTab() {
   const { utterances, speakerColorMap, partialResults } = useTranscript();
   const { t } = useI18n();
   const [speakerModal, setSpeakerModal] = useState(null);
+
+  // Track the floating bar's height so the transcript can scroll clear of it
+  const barRef = useRef(null);
+  const [barHeight, setBarHeight] = useState(48);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setBarHeight(el.offsetHeight + 12));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const sessionInfo = useMemo(() => {
     if (!selectedSessionData || isListening) return null;
@@ -54,47 +65,53 @@ export default function LiveTab() {
     return { dateStr, duration, sourceStr, targetStr, contextLabel, uttCount: utts.length, speakers, aliases: d.speakerAliases || {} };
   }, [selectedSessionData, isListening, t]);
 
-  return (
-    <>
-      <Controls />
-      {sessionInfo && (
-        <div className="bg-white/60 dark:bg-white/3 backdrop-blur-md border border-gray-200/50 dark:border-indigo-500/10 rounded-2xl mt-2 px-4 py-3">
+  const header = sessionInfo && (
+    <div className="pb-3 mb-4 border-b border-separator">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] text-label-2">
+        <span>{sessionInfo.dateStr}</span>
+        <Dot />
+        <span className="tabular-nums">{sessionInfo.duration}</span>
+        <Dot />
+        <span>{sessionInfo.sourceStr} → {sessionInfo.targetStr}</span>
+        {sessionInfo.contextLabel && <>
+          <Dot />
+          <span className="truncate max-w-[240px]" title={selectedSessionData?.context}>{sessionInfo.contextLabel}</span>
+        </>}
+        <Dot />
+        <span className="tabular-nums">{t("utteranceCount", { count: sessionInfo.uttCount })}</span>
+      </div>
 
-          {/* Metadata grid */}
-          <div className="grid gap-x-4 gap-y-1.5" style={{ gridTemplateColumns: "auto 1fr" }}>
-            <span className={lbl}>{t("started")}</span>
-            <span className={val}>{sessionInfo.dateStr} <span className="text-gray-400 dark:text-gray-600 mx-1">·</span> {sessionInfo.duration}</span>
-
-            <span className={lbl}>{t("source")}</span>
-            <span className={val}>{sessionInfo.sourceStr} <span className="text-gray-400 dark:text-gray-600 mx-0.5">→</span> {sessionInfo.targetStr}</span>
-
-            {sessionInfo.contextLabel && <>
-              <span className={lbl}>{t("context")}</span>
-              <span className={val}>{sessionInfo.contextLabel}</span>
-            </>}
-
-            <span className={lbl}>{t("utterances")}</span>
-            <span className={val}>
-              {sessionInfo.uttCount}
-              {sessionInfo.speakers.length > 0 &&
-                <span className="text-gray-400 dark:text-gray-600"> · {sessionInfo.speakers.length} {t("speakers")}</span>}
-            </span>
-          </div>
-
-          {/* Speakers — horizontal */}
-          {sessionInfo.speakers.length > 0 && (
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2.5 pt-2.5 border-t border-gray-100/60 dark:border-indigo-500/10">
-              <SpeakerList
-                speakers={sessionInfo.speakers}
-                aliases={sessionInfo.aliases}
-                speakerColorMap={speakerColorMap}
-                onRenameSpeaker={(speaker, currentName) => setSpeakerModal({ speaker, currentName })}
-              />
-            </div>
-          )}
+      {sessionInfo.speakers.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          <SpeakerList
+            speakers={sessionInfo.speakers}
+            aliases={sessionInfo.aliases}
+            speakerColorMap={speakerColorMap}
+            onRenameSpeaker={(speaker, currentName) => setSpeakerModal({ speaker, currentName })}
+          />
         </div>
       )}
-      <Transcript utterances={utterances} speakerColorMap={speakerColorMap} speakerAliases={selectedSessionData?.speakerAliases} partialResults={partialResults} />
+    </div>
+  );
+
+  return (
+    <div className="absolute inset-0 flex flex-col">
+      <Transcript
+        header={header}
+        utterances={utterances}
+        speakerColorMap={speakerColorMap}
+        speakerAliases={selectedSessionData?.speakerAliases}
+        partialResults={partialResults}
+        bottomInset={barHeight + 12}
+      />
+
+      {/* Floating glass bottom bar: status + session setup */}
+      <div className="absolute inset-x-0 bottom-0 z-10 p-3 flex justify-center pointer-events-none">
+        <div ref={barRef} className="glass-panel rounded-[22px] pointer-events-auto max-w-full flex items-center gap-x-4 px-3 py-2">
+          <StatusBar />
+          <Controls />
+        </div>
+      </div>
 
       <PromptDialog
         open={!!speakerModal}
@@ -120,6 +137,6 @@ export default function LiveTab() {
           }
         }}
       />
-    </>
+    </div>
   );
 }

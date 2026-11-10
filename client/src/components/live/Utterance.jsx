@@ -2,7 +2,9 @@ import { memo } from "react";
 import { getSpeakerIndex } from "../../utils/speakerColors";
 import { useI18n } from "../../i18n/I18nContext";
 
-function Utterance({ data, speakerColorMap, speakerName }) {
+// One transcript entry. Consecutive entries from the same speaker are `grouped`
+// and drop the speaker line so the transcript reads like continuous paragraphs.
+function Utterance({ data, grouped, speakerColorMap, speakerName }) {
   const { t } = useI18n();
   const idx = getSpeakerIndex(data.speaker, speakerColorMap);
   const speaker = speakerName || (data.speaker ? `${t("speaker")} ${idx + 1}` : t("speaker"));
@@ -13,31 +15,24 @@ function Utterance({ data, speakerColorMap, speakerName }) {
   const translation = data.translatedText || data.translated_text;
 
   return (
-    <div className={`speaker-${idx} p-3 mb-1.5 rounded-xl bg-gray-50/80 dark:bg-white/3 border-l-3 border-l-(--speaker-color,#444) transition-all duration-200 hover:bg-gray-100/80 dark:hover:bg-white/6 shadow-sm hover:shadow-md`}>
-      <div className="flex items-center gap-2 mb-1.5 text-xs">
-        <span className="font-bold text-(--speaker-color,#60a5fa)">{speaker}</span>
-        {lang && (
-          <span className="bg-gray-100/80 dark:bg-white/5 text-gray-500 dark:text-gray-500 px-2 py-px rounded-full text-[0.68rem] font-medium">
-            {lang}
-          </span>
-        )}
-        {source && source !== "mic" && (
-          <span className="bg-gray-100/80 dark:bg-white/5 text-gray-400 dark:text-gray-600 px-2 py-px rounded-full text-[0.68rem] font-medium">
-            {source.toUpperCase()}
-          </span>
-        )}
-        <span className="ml-auto text-gray-300 dark:text-gray-700 text-[0.7rem] tabular-nums">{time}</span>
-      </div>
-      <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed mb-1">{original}</div>
-      {translation && (
-        <div className="text-sm text-(--speaker-color,#4ade80) opacity-85 leading-relaxed pl-3 border-l-2 border-l-(--speaker-color,#4ade80) mt-1">
-          {translation}
+    <div className={`speaker-${idx} ${grouped ? "mt-2.5" : "mt-5 first:mt-0"}`}>
+      {!grouped && (
+        <div className="flex items-center gap-1.5 mb-1 text-[12px]">
+          <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-(--speaker-color)" />
+          <span className="font-semibold text-(--speaker-color)">{speaker}</span>
+          <span className="text-[11px] text-label-3 tabular-nums">{time}</span>
+          {lang && <span className="text-[11px] text-label-3 uppercase">{lang}</span>}
+          {source && source !== "mic" && <span className="text-[11px] text-label-3 uppercase">{source}</span>}
         </div>
+      )}
+      <div className="selectable text-[14px] leading-relaxed text-label-2" title={grouped ? time : undefined}>{original}</div>
+      {translation && (
+        <div className="selectable text-[14px] leading-relaxed text-label mt-0.5">{translation}</div>
       )}
     </div>
   );
 }
 
 export default memo(Utterance, (prev, next) =>
-  prev.data === next.data && prev.speakerName === next.speakerName
+  prev.data === next.data && prev.speakerName === next.speakerName && prev.grouped === next.grouped
 );

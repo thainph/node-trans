@@ -1,24 +1,62 @@
 import { useEffect, useRef } from "react";
 import { useI18n } from "../i18n/I18nContext";
 
-const overlay = "fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-[fadeIn_150ms_ease-out]";
-const panel = "bg-white/95 dark:bg-[#0d0f1a]/95 backdrop-blur-xl border border-gray-200/50 dark:border-indigo-500/15 rounded-2xl shadow-2xl shadow-indigo-500/10 w-full max-w-sm mx-4 p-5 animate-[scaleIn_150ms_ease-out]";
-export const btnPrimary = "px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer border-none transition-all duration-200 active:scale-95";
-export const btnCancel = "px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-all duration-200 active:scale-95 bg-gray-100/80 dark:bg-white/5 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-indigo-500/10 hover:bg-gray-200/80 dark:hover:bg-white/10";
+// Kept for callers that style their own footer buttons
+export const btnPrimary = "btn btn-primary";
+export const btnCancel = "btn";
 
-export function ModalBase({ open, onClose, children }) {
+// Open sheets, innermost last — only the top one reacts to Escape / Enter
+const sheetStack = [];
+
+// macOS-style sheet. Escape closes, Enter triggers the button marked `data-default`
+// (forms handle Enter themselves). The first field, else the default button, gets focus.
+export function ModalBase({ open, onClose, children, className = "", width = 380, closeOnBackdrop = true }) {
+  const sheetRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    const id = {};
+    sheetStack.push(id);
+
+    const sheet = sheetRef.current;
+    const first = sheet?.querySelector("[data-autofocus], input:not([type=hidden]):not(:disabled), textarea, select")
+      || sheet?.querySelector("[data-default]");
+    first?.focus();
+
+    const handler = (e) => {
+      if (sheetStack[sheetStack.length - 1] !== id) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCloseRef.current?.();
+      } else if (e.key === "Enter" && !e.isComposing) {
+        const target = e.target;
+        if (target.closest?.("form") || target.tagName === "TEXTAREA" || target.tagName === "BUTTON" || target.tagName === "SELECT") return;
+        const btn = sheet?.querySelector("[data-default]:not(:disabled)");
+        if (btn) { e.preventDefault(); btn.click(); }
+      }
+    };
     document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+    return () => {
+      document.removeEventListener("keydown", handler);
+      const i = sheetStack.indexOf(id);
+      if (i !== -1) sheetStack.splice(i, 1);
+    };
+  }, [open]);
 
   if (!open) return null;
 
   return (
-    <div className={overlay} onMouseDown={onClose}>
-      <div className={panel} onMouseDown={(e) => e.stopPropagation()}>
+    <div className="sheet-backdrop" onMouseDown={closeOnBackdrop ? onClose : undefined}>
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        className={`sheet max-w-[calc(100vw-32px)] ${className}`}
+        style={width ? { width } : undefined}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         {children}
       </div>
     </div>
@@ -27,18 +65,17 @@ export function ModalBase({ open, onClose, children }) {
 
 export function ConfirmDialog({ open, title, message, confirmLabel, confirmColor = "red", onConfirm, onCancel }) {
   const { t } = useI18n();
-  const colorMap = {
-    red: "bg-linear-to-r from-rose-600 to-pink-500 text-white shadow-md shadow-rose-500/20",
-    blue: "bg-linear-to-r from-indigo-600 to-cyan-500 text-white shadow-md shadow-indigo-500/20",
-  };
+  const isDestructive = confirmColor !== "blue";
+  const confirmCls = isDestructive ? "btn btn-destructive" : "btn btn-primary";
 
   return (
-    <ModalBase open={open} onClose={onCancel}>
-      <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-2">{title}</h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">{message}</p>
+    <ModalBase open={open} onClose={onCancel} width={340} className="p-5">
+      <h3 className="text-[13px] font-semibold text-label mb-1.5">{title}</h3>
+      <p className="text-[12px] text-label-2 leading-snug mb-5">{message}</p>
       <div className="flex justify-end gap-2">
-        <button className={btnCancel} onClick={onCancel}>{t("cancel")}</button>
-        <button className={`${btnPrimary} ${colorMap[confirmColor] || colorMap.red}`} onClick={onConfirm}>
+        {/* Like macOS, a destructive action is never the default: focus Cancel and ignore Enter */}
+        <button className="btn" onClick={onCancel} data-autofocus={isDestructive || undefined}>{t("cancel")}</button>
+        <button className={confirmCls} onClick={onConfirm} data-default={!isDestructive || undefined}>
           {confirmLabel || t("delete")}
         </button>
       </div>
@@ -64,19 +101,19 @@ export function PromptDialog({ open, title, defaultValue = "", placeholder = "",
   };
 
   return (
-    <ModalBase open={open} onClose={onCancel}>
-      <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-3">{title}</h3>
+    <ModalBase open={open} onClose={onCancel} width={340} className="p-5">
+      <h3 className="text-[13px] font-semibold text-label mb-3">{title}</h3>
       <form onSubmit={handleSubmit}>
         <input
           ref={inputRef}
           type="text"
           defaultValue={defaultValue}
           placeholder={placeholder}
-          className="w-full px-3 py-2 rounded-xl text-sm bg-gray-50/80 dark:bg-white/5 text-gray-900 dark:text-gray-200 border border-gray-200/50 dark:border-indigo-500/10 outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 mb-4"
+          className="field w-full mb-5"
         />
         <div className="flex justify-end gap-2">
-          <button type="button" className={btnCancel} onClick={onCancel}>{t("cancel")}</button>
-          <button type="submit" className={`${btnPrimary} bg-linear-to-r from-indigo-600 to-cyan-500 text-white shadow-md shadow-indigo-500/20`}>
+          <button type="button" className="btn" onClick={onCancel}>{t("cancel")}</button>
+          <button type="submit" className="btn btn-primary" data-default>
             {t("save")}
           </button>
         </div>

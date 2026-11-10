@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import { getSpeakerIndex } from "../../utils/speakerColors";
 import { useI18n } from "../../i18n/I18nContext";
 
@@ -14,15 +15,18 @@ export default function SpeakerList({ speakers, aliases, speakerColorMap, onRena
     <>
       {speakers.map((s) => {
         const idx = getSpeakerIndex(s, speakerColorMap);
+        const name = speakerName(s);
         return (
-          <div key={s} className={`speaker-${idx} flex items-center gap-1.5`}>
-            <span className="w-2 h-2 rounded-full shrink-0 bg-(--speaker-color,#444) shadow-[0_0_5px_var(--speaker-color)]" />
-            <span className="text-xs text-gray-700 dark:text-gray-300">{speakerName(s)}</span>
+          <div key={s} className={`speaker-${idx} group flex items-center gap-1.5 h-6 pl-2 pr-0.5 rounded-full bg-fill`}>
+            <span className="w-2 h-2 rounded-full shrink-0 bg-(--speaker-color)" />
+            <span className="text-[12px] text-label">{name}</span>
             <button
-              className="bg-transparent border-none cursor-pointer text-xs px-1 py-0.5 rounded opacity-30 transition-opacity hover:opacity-100 hover:bg-gray-100/60 dark:hover:bg-white/5"
-              onClick={() => onRenameSpeaker(s, speakerName(s))}
+              className="btn-icon min-w-5! h-5! px-0! rounded-full! opacity-60 group-hover:opacity-100"
+              onClick={() => onRenameSpeaker(s, name)}
+              title={t("renameSpeaker", { name })}
+              aria-label={t("renameSpeaker", { name })}
             >
-              🖊️
+              <Pencil size={12} strokeWidth={1.75} />
             </button>
           </div>
         );

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, systemPreferences, dialog, shell, session } from "electron";
+import { app, BrowserWindow, ipcMain, systemPreferences, dialog, shell, session, Menu, nativeTheme } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
@@ -86,6 +86,8 @@ function createOverlayWindow() {
     y = Math.round(my + mh - overlayHeight);
   }
 
+  // Fully transparent window (no vibrancy) so the user's opacity setting can go near zero
+  // over video; the renderer paints the rounded HUD surface, border and blur itself.
   overlayWindow = new BrowserWindow({
     width: overlayWidth,
     height: overlayHeight,
@@ -96,6 +98,7 @@ function createOverlayWindow() {
     alwaysOnTop: true,
     transparent: true,
     frame: false,
+    // Native shadows on transparent windows don't follow the CSS-rounded surface
     hasShadow: false,
     resizable: true,
     skipTaskbar: true,
@@ -294,35 +297,178 @@ app.whenReady().then(async () => {
   const port = await startServer();
   appPort = port;
 
+  setupNativeChrome();
+  createMainWindow();
+  if (isDev) mainWindow.webContents.openDevTools({ mode: "detach" });
+
+  setupAutoUpdate();
+
+  app.on("activate", () => {
+    // The overlay may still be open, so check the main window itself
+    if (!mainWindow || mainWindow.isDestroyed()) createMainWindow();
+  });
+});
+
+// Platform-native window chrome: inset traffic lights + sidebar vibrancy on macOS,
+// Mica on Windows 11, plain opaque window on Linux.
+function platformWindowOptions() {
+  if (process.platform === "darwin") {
+    return {
+      titleBarStyle: "hiddenInset",
+      trafficLightPosition: { x: 22, y: 20 }, // inside the floating sidebar panel (8px inset)
+      vibrancy: "sidebar",
+      visualEffectState: "followWindow",
+      backgroundColor: "#00000000",
+    };
+  }
+  if (process.platform === "win32") {
+    return { backgroundMaterial: "mica", autoHideMenuBar: true };
+  }
+  return { autoHideMenuBar: true };
+}
+
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    minWidth: 760,
+    minHeight: 480,
+    show: false,
+    ...platformWindowOptions(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+  mainWindow.once("ready-to-show", () => mainWindow.show());
 
-  if (isDev) {
-    mainWindow.loadURL("http://localhost:5173");
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadURL(`http://localhost:${port}`);
+  const sendFullscreen = (full) => () => mainWindow?.webContents.send("window:fullscreen", full);
+  mainWindow.on("enter-full-screen", sendFullscreen(true));
+  mainWindow.on("leave-full-screen", sendFullscreen(false));
+  mainWindow.on("closed", () => { mainWindow = null; });
+
+  mainWindow.loadURL(isDev ? "http://localhost:5173" : `http://localhost:${appPort}`);
+}
+
+function sendMenuAction(id) {
+  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+  if (!win) return;
+  if (id === "settings") win.show();
+  win.webContents.send("menu:action", id);
+}
+
+function buildAppMenu() {
+  const isMac = process.platform === "darwin";
+  const action = (label, id, accelerator) => ({ label, accelerator, click: () => sendMenuAction(id) });
+
+  const template = [
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: "about" },
+        { type: "separator" },
+        action("Settings…", "settings", "Cmd+,"),
+        { type: "separator" },
+        { role: "services" },
+        { type: "separator" },
+        { role: "hide" },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { role: "quit" },
+      ],
+    }] : []),
+    {
+      label: "File",
+      submenu: [
+        action("New Session", "new-session", "CmdOrCtrl+N"),
+        { type: "separator" },
+        action("Rename Session…", "rename"),
+        action("Export…", "export", "CmdOrCtrl+E"),
+        { type: "separator" },
+        // No accelerator: Cmd+Backspace must keep deleting text in input fields
+        action("Delete Session…", "delete"),
+        ...(isMac ? [{ type: "separator" }, { role: "close" }] : [
+          { type: "separator" },
+          action("Settings…", "settings", "Ctrl+,"),
+          { type: "separator" },
+          { role: "quit" },
+        ]),
+      ],
+    },
+    { role: "editMenu" },
+    {
+      label: "Recording",
+      submenu: [
+        action("Start / Stop", "toggle-recording", "CmdOrCtrl+R"),
+        action("Pause / Resume", "pause-resume", "CmdOrCtrl+Shift+P"),
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        action("Toggle Sidebar", "toggle-sidebar", isMac ? "Ctrl+Cmd+S" : "Ctrl+B"),
+        action("Show / Hide Overlay", "toggle-overlay", "CmdOrCtrl+Shift+O"),
+        action("Find Session", "find", "CmdOrCtrl+F"),
+        { type: "separator" },
+        ...(isDev ? [{ role: "reload" }, { role: "toggleDevTools" }, { type: "separator" }] : []),
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    { role: "windowMenu" },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+function getAccentHex() {
+  try {
+    const rgba = systemPreferences.getAccentColor?.();
+    return rgba ? `#${rgba.slice(0, 6)}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function setupNativeChrome() {
+  buildAppMenu();
+
+  ipcMain.on("theme:set", (_e, mode) => {
+    if (["system", "light", "dark"].includes(mode)) nativeTheme.themeSource = mode;
+  });
+
+  ipcMain.handle("accent:get", () => getAccentHex());
+  const broadcastAccent = () => {
+    const hex = getAccentHex();
+    if (hex && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("accent:changed", hex);
+  };
+  if (process.platform === "darwin") {
+    systemPreferences.subscribeNotification("AppleColorPreferencesChangedNotification", broadcastAccent);
+  } else if (process.platform === "win32") {
+    systemPreferences.on("accent-color-changed", broadcastAccent);
   }
 
-  setupAutoUpdate();
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindow = new BrowserWindow({
-        width: 1200,
-        height: 800,
-      });
-      mainWindow.loadURL(`http://localhost:${port}`);
-    }
-  });
-});
+  // Native context menu: renderer sends [{ id, label, disabled } | { type: "separator" }],
+  // resolves with the clicked id or null when dismissed.
+  ipcMain.handle("context-menu:show", (e, items) => new Promise((resolve) => {
+    const menu = Menu.buildFromTemplate((items || []).map((item) =>
+      item.type === "separator"
+        ? { type: "separator" }
+        : { label: String(item.label), enabled: !item.disabled, click: () => resolve(item.id) }
+    ));
+    menu.popup({
+      window: BrowserWindow.fromWebContents(e.sender),
+      // The close callback can run before the item's click handler; a promise only settles once,
+      // so a late null is ignored when an item was picked.
+      callback: () => setTimeout(() => resolve(null), 50),
+    });
+  }));
+}
 
 const DOWNLOAD_FILTERS = {
   docx: { name: "Word", extensions: ["docx"] },

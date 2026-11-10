@@ -59,6 +59,8 @@ Two captures and two STT sessions run in parallel, and speaker IDs are prefixed 
 
 ### Frontend (`client/src/`)
 - React 19 + Vite + Tailwind v4 SPA, with no router. Two entry points: `main.jsx` (app) and `overlay-main.jsx` (always-on-top overlay window).
+- **UI style is macOS 26 "Liquid Glass"** (glass only on chrome, opaque content) — follow `design-system/node-trans/MASTER.md`. Use the semantic tokens and component classes in `style.css` (`bg-content`, `text-label-2`, `.btn`, `.select`, `.segmented`, `.switch`, `.list-row`, `.group-box`, `.sheet`…), never raw palette colors or gradients. Icons come from `lucide-react`.
+- **Commands / shortcuts**: `hooks/useCommand.js` (menu bar in Electron, keydown on web; ids must match the menu in `electron/main.js`). Context menus: `utils/contextMenu.js`. Recording actions live in `hooks/useRecording.js`.
 - **context/SocketContext.jsx**: The central `useReducer` store: socket connection, listening state, utterances, speaker colors, session selection, overlay state and toasts.
 - **i18n/**: EN/VI UI strings in `locales.js` via `t()`. Any new UI string needs both languages.
 - **utils/constants.js**: Language list, Whisper/Ollama model options, context presets.

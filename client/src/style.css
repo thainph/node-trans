@@ -2,61 +2,385 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-@theme {
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --color-primary: #6366f1;
-  --color-primary-hover: #818cf8;
-  --color-accent: #06b6d4;
-  --color-speaker-0: #60a5fa;
-  --color-speaker-1: #f472b6;
-  --color-speaker-2: #a78bfa;
-  --color-speaker-3: #34d399;
-  --color-speaker-4: #fbbf24;
-  --color-speaker-5: #fb923c;
-  --color-speaker-6: #22d3ee;
-  --color-speaker-7: #e879f9;
+/*
+ * macOS 26 "Liquid Glass" design tokens.
+ * Glass is for chrome only (sidebar panel, toolbar capsules, floating bars, sheets, menus).
+ * Content stays on an opaque surface for legibility and performance.
+ * Components use the semantic utilities below (bg-content, text-label, border-separator, bg-accent…)
+ * instead of raw palette colors, so light/dark and the system accent color stay in one place.
+ */
+:root {
+  color-scheme: light;
+  --accent: #007aff;
+  --accent-text: #ffffff;
+  --window: #e9e9ec;
+  --sidebar: #e3e3e7;
+  --content: #ffffff;
+  --grouped: #f4f4f6;
+  --control: rgba(255, 255, 255, 0.7);
+  --fill: rgba(0, 0, 0, 0.05);
+  --fill-strong: rgba(0, 0, 0, 0.09);
+  --label: rgba(0, 0, 0, 0.86);
+  --label-2: rgba(0, 0, 0, 0.55);
+  --label-3: rgba(0, 0, 0, 0.3);
+  --separator: rgba(0, 0, 0, 0.09);
+  --control-border: rgba(0, 0, 0, 0.1);
+  --selection-inactive: rgba(0, 0, 0, 0.07);
+  --red: #ff3b30;
+  --orange: #ff9500;
+  --yellow: #ffcc00;
+  --green: #28cd41;
+
+  /* Glass material */
+  --glass: rgba(255, 255, 255, 0.62);
+  --glass-strong: rgba(255, 255, 255, 0.8);
+  --glass-tint: rgba(255, 255, 255, 0.35);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-edge: rgba(0, 0, 0, 0.08);
+  --glass-blur: blur(22px) saturate(180%);
+  --shadow-glass: 0 0 0 0.5px var(--glass-edge), 0 6px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-popover: 0 0 0 0.5px var(--glass-edge), 0 18px 48px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  /* Concentric radii */
+  --radius-window: 16px;
+  --radius-panel: 14px;
+  --radius-row: 10px;
+  --radius-sheet: 22px;
 }
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --accent: #0a84ff;
+  --window: #1c1c1e;
+  --sidebar: #232326;
+  --content: #1e1e20;
+  --grouped: #2a2a2d;
+  --control: rgba(255, 255, 255, 0.1);
+  --fill: rgba(255, 255, 255, 0.06);
+  --fill-strong: rgba(255, 255, 255, 0.12);
+  --label: rgba(255, 255, 255, 0.9);
+  --label-2: rgba(255, 255, 255, 0.56);
+  --label-3: rgba(255, 255, 255, 0.28);
+  --separator: rgba(255, 255, 255, 0.09);
+  --control-border: rgba(255, 255, 255, 0.1);
+  --selection-inactive: rgba(255, 255, 255, 0.1);
+  --red: #ff453a;
+  --orange: #ff9f0a;
+  --yellow: #ffd60a;
+  --green: #32d74b;
+
+  --glass: rgba(44, 44, 48, 0.58);
+  --glass-strong: rgba(48, 48, 52, 0.82);
+  --glass-tint: rgba(255, 255, 255, 0.06);
+  --glass-highlight: rgba(255, 255, 255, 0.16);
+  --glass-edge: rgba(255, 255, 255, 0.1);
+  --shadow-glass: 0 0 0 0.5px var(--glass-edge), 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-popover: 0 0 0 0.5px var(--glass-edge), 0 22px 56px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-window: var(--window);
+  --color-sidebar: var(--sidebar);
+  --color-content: var(--content);
+  --color-grouped: var(--grouped);
+  --color-control: var(--control);
+  --color-fill: var(--fill);
+  --color-fill-strong: var(--fill-strong);
+  --color-label: var(--label);
+  --color-label-2: var(--label-2);
+  --color-label-3: var(--label-3);
+  --color-separator: var(--separator);
+  --color-control-border: var(--control-border);
+  --color-selection-inactive: var(--selection-inactive);
+  --color-sys-red: var(--red);
+  --color-sys-orange: var(--orange);
+  --color-sys-yellow: var(--yellow);
+  --color-sys-green: var(--green);
+
+  /* Speaker colors — Apple system palette */
+  --color-speaker-0: #0a84ff;
+  --color-speaker-1: #ff375f;
+  --color-speaker-2: #bf5af2;
+  --color-speaker-3: #30d158;
+  --color-speaker-4: #ff9f0a;
+  --color-speaker-5: #64d2ff;
+  --color-speaker-6: #ffd60a;
+  --color-speaker-7: #ac8e68;
+}
+
+.speaker-0 { --speaker-color: #0a84ff; }
+.speaker-1 { --speaker-color: #ff375f; }
+.speaker-2 { --speaker-color: #bf5af2; }
+.speaker-3 { --speaker-color: #30d158; }
+.speaker-4 { --speaker-color: #ff9f0a; }
+.speaker-5 { --speaker-color: #64d2ff; }
+.speaker-6 { --speaker-color: #e5b800; }
+.speaker-7 { --speaker-color: #ac8e68; }
 
 /* Base */
+html, body, #root { height: 100%; }
 body {
-  background: #f0f2f8;
-  transition: background 0.3s;
+  margin: 0;
+  background: var(--window);
+  color: var(--label);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
 }
-[data-theme="dark"] body {
-  background: #06070b;
+/* Text the user may want to copy */
+input, textarea, .selectable { user-select: text; cursor: auto; }
+
+/* macOS Electron: the sidebar column shows the native window vibrancy through the glass panel */
+[data-vibrancy] body { background: transparent; }
+[data-vibrancy] .sidebar-surface { background: transparent; }
+
+/* Draggable title-bar regions (Electron) */
+.drag { -webkit-app-region: drag; }
+.drag button, .drag input, .drag select, .drag a, .drag [role="button"], .no-drag { -webkit-app-region: no-drag; }
+
+/* Room for the traffic lights when they sit over this element */
+.traffic-light-pad { padding-left: 0; }
+[data-platform="darwin"][data-electron]:not([data-fullscreen]) .traffic-light-pad { padding-left: 84px; }
+
+:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
+
+@layer components {
+  /* ---------- Glass material ---------- */
+
+  /* Base glass: translucent fill + blur + bright top edge (specular) + soft shadow */
+  .glass {
+    background:
+      linear-gradient(180deg, var(--glass-tint), transparent 60%),
+      var(--glass);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-glass), inset 0 1px 0 var(--glass-highlight), inset 0 -0.5px 0 rgba(0, 0, 0, 0.04);
+  }
+  /* Floating capsule grouping toolbar buttons */
+  .glass-capsule {
+    display: inline-flex; align-items: center; gap: 2px;
+    height: 36px; padding: 2px; border-radius: 999px;
+  }
+  /* Large floating panel (sidebar, bottom bar) */
+  .glass-panel { border-radius: var(--radius-panel); }
+
+  /* Scroll-edge effect: content fades + blurs as it slides under the floating toolbar */
+  .scroll-edge-top {
+    background: linear-gradient(180deg, var(--content) 0%, var(--content) 45%, color-mix(in srgb, var(--content) 80%, transparent) 70%, transparent 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    mask-image: linear-gradient(180deg, #000 65%, transparent 100%);
+  }
+
+  /* ---------- Controls ---------- */
+
+  /* Push button — capsule */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap;
+    color: var(--label);
+    background: linear-gradient(180deg, var(--glass-tint), transparent), var(--fill-strong);
+    border: none;
+    box-shadow: inset 0 0.5px 0 var(--glass-highlight), 0 0 0 0.5px var(--control-border);
+    cursor: default;
+    transition: background-color 160ms ease-out, transform 160ms cubic-bezier(0.3, 1.4, 0.5, 1), opacity 160ms ease-out;
+  }
+  .btn:hover:not(:disabled) { background: linear-gradient(180deg, var(--glass-tint), transparent), color-mix(in srgb, var(--fill-strong) 100%, var(--label) 6%); }
+  .btn:active:not(:disabled) { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.45; }
+  .btn-lg { height: 32px; padding: 0 16px; }
+  .btn-primary {
+    color: var(--accent-text);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 70%), var(--accent);
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.45), 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .btn-primary:hover:not(:disabled) { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 70%), var(--accent); }
+  .btn-destructive {
+    color: #fff;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 70%), var(--red);
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.45), 0 2px 8px color-mix(in srgb, var(--red) 30%, transparent);
+  }
+  .btn-destructive:hover:not(:disabled) { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 70%), var(--red); }
+  /* Glass button that floats on its own (e.g. toolbar Record) */
+  .btn-glass {
+    background: linear-gradient(180deg, var(--glass-tint), transparent 60%), var(--glass);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-glass), inset 0 1px 0 var(--glass-highlight);
+  }
+  .btn-glass:hover:not(:disabled) { background: linear-gradient(180deg, var(--glass-tint), transparent 60%), var(--glass-strong); }
+
+  /* Borderless round icon button (inside capsules / inline) */
+  .btn-icon {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-width: 32px; height: 32px; padding: 0 8px; border-radius: 999px;
+    color: var(--label); background: transparent; border: none;
+    font-size: 13px; cursor: default;
+    transition: background-color 160ms ease-out, color 160ms ease-out, transform 160ms cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+  .btn-icon:hover:not(:disabled) { background: var(--fill-strong); }
+  .btn-icon:active:not(:disabled) { transform: scale(0.94); }
+  .btn-icon[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+  .btn-icon:disabled { opacity: 0.35; }
+  .btn-icon-sm { min-width: 24px; height: 24px; padding: 0 5px; }
+
+  /* Text field — capsule */
+  .field {
+    height: 28px; padding: 0 12px; border-radius: 999px;
+    font-size: 13px; color: var(--label); background: var(--fill);
+    border: none; outline: none;
+    box-shadow: inset 0 0 0 0.5px var(--control-border);
+    transition: box-shadow 160ms ease-out, background-color 160ms ease-out;
+  }
+  textarea.field { height: auto; padding: 7px 12px; line-height: 1.4; border-radius: 12px; }
+  .field::placeholder { color: var(--label-3); }
+  .field:focus { background: var(--content); box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 3.5px color-mix(in srgb, var(--accent) 28%, transparent); }
+  .field:disabled { opacity: 0.5; }
+
+  /* Pop-up button (native <select>) — capsule */
+  .select {
+    appearance: none; -webkit-appearance: none;
+    height: 28px; padding: 0 28px 0 12px; border-radius: 999px;
+    font-size: 13px; color: var(--label);
+    background-color: var(--fill-strong);
+    border: none; outline: none;
+    box-shadow: inset 0 0.5px 0 var(--glass-highlight), 0 0 0 0.5px var(--control-border);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12' viewBox='0 0 8 12' fill='none' stroke='%23888' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 4.5 4 2l2.5 2.5M1.5 7.5 4 10l2.5-2.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 11px center;
+    text-overflow: ellipsis; cursor: default;
+    transition: background-color 160ms ease-out;
+  }
+  .select:hover:not(:disabled) { background-color: color-mix(in srgb, var(--fill-strong) 100%, var(--label) 6%); }
+  .select:focus-visible { box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--accent) 28%, transparent); }
+  .select:disabled { opacity: 0.5; }
+
+  /* Segmented control — capsule track with a raised glass thumb.
+     <div class="segmented"><button aria-pressed="true">… */
+  .segmented {
+    display: inline-flex; padding: 2px; gap: 2px; border-radius: 999px;
+    background: var(--fill-strong);
+    box-shadow: inset 0 0 0 0.5px var(--control-border);
+  }
+  .segmented > button {
+    height: 24px; padding: 0 12px; border-radius: 999px; border: none;
+    font-size: 12px; font-weight: 500; color: var(--label-2); background: transparent; cursor: default;
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: background-color 220ms cubic-bezier(0.3, 1.2, 0.5, 1), color 160ms ease-out, box-shadow 220ms ease-out, transform 220ms cubic-bezier(0.3, 1.4, 0.5, 1);
+  }
+  .segmented > button:hover:not([aria-pressed="true"]):not(:disabled) { color: var(--label); }
+  .segmented > button[aria-pressed="true"] {
+    color: var(--label);
+    background: linear-gradient(180deg, var(--glass-highlight), transparent 120%), var(--content);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12), 0 0 0 0.5px var(--control-border);
+  }
+  [data-theme="dark"] .segmented > button[aria-pressed="true"] { background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent), rgba(255, 255, 255, 0.16); }
+  .segmented > button:active:not(:disabled) { transform: scale(0.96); }
+  .segmented > button:disabled { opacity: 0.45; }
+
+  /* Switch: <input type="checkbox" class="switch"> — wide capsule, glass knob */
+  .switch {
+    appearance: none; -webkit-appearance: none; flex-shrink: 0;
+    width: 38px; height: 22px; border-radius: 999px; position: relative;
+    background: var(--fill-strong); box-shadow: inset 0 0 0 0.5px var(--control-border);
+    transition: background-color 200ms ease-out; cursor: default;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 24px; height: 18px;
+    border-radius: 999px; background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+    transition: transform 240ms cubic-bezier(0.3, 1.4, 0.5, 1), width 160ms ease-out;
+  }
+  .switch:active:not(:disabled)::after { width: 28px; }
+  .switch:checked { background: var(--accent); }
+  .switch:checked::after { transform: translateX(10px); }
+  .switch:checked:active:not(:disabled)::after { transform: translateX(6px); }
+  .switch:disabled { opacity: 0.45; }
+
+  /* Checkbox / radio / range pick up the accent */
+  input[type="checkbox"]:not(.switch), input[type="radio"], input[type="range"] { accent-color: var(--accent); }
+
+  /* ---------- Lists & groups ---------- */
+
+  /* Sidebar / source-list row — rounded, inset */
+  .list-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: var(--radius-row); color: var(--label);
+    cursor: default; transition: background-color 140ms ease-out;
+  }
+  .list-row:hover:not([aria-selected="true"]) { background: var(--fill); }
+  .list-row[aria-selected="true"] { background: var(--selection-inactive); }
+  .window-focused .list-row[aria-selected="true"] {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent), var(--accent);
+    color: var(--accent-text);
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
+  }
+  .window-focused .list-row[aria-selected="true"] .row-secondary { color: rgba(255, 255, 255, 0.78); }
+
+  /* Section header (sidebar groups, settings sections) */
+  .section-header { font-size: 11px; font-weight: 600; color: var(--label-2); padding: 0 10px; }
+
+  /* Grouped box (System Settings style form section) */
+  .group-box {
+    background: var(--grouped); border-radius: var(--radius-panel);
+    box-shadow: inset 0 0 0 0.5px var(--separator);
+  }
+  .group-box > .group-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; min-height: 40px; }
+  .group-box > .group-row + .group-row { border-top: 0.5px solid var(--separator); }
+
+  /* ---------- Overlays ---------- */
+
+  /* Sheet (modal) — floating glass card */
+  .sheet-backdrop {
+    position: fixed; inset: 0; z-index: 50; display: flex; justify-content: center; align-items: flex-start;
+    padding-top: 60px; background: rgba(0, 0, 0, 0.14);
+    animation: fadeIn 180ms ease-out;
+  }
+  .sheet {
+    color: var(--label); border-radius: var(--radius-sheet);
+    background: linear-gradient(180deg, var(--glass-tint), transparent 30%), var(--glass-strong);
+    backdrop-filter: blur(40px) saturate(180%); -webkit-backdrop-filter: blur(40px) saturate(180%);
+    box-shadow: var(--shadow-popover), inset 0 1px 0 var(--glass-highlight);
+    animation: sheetIn 320ms cubic-bezier(0.25, 1.25, 0.45, 1);
+    max-height: calc(100vh - 84px); overflow: auto;
+  }
+
+  /* Popover / context menu */
+  .menu {
+    position: fixed; z-index: 60; min-width: 190px; padding: 6px;
+    background: linear-gradient(180deg, var(--glass-tint), transparent 40%), var(--glass-strong);
+    backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%);
+    border-radius: 14px; box-shadow: var(--shadow-popover), inset 0 1px 0 var(--glass-highlight);
+    animation: popIn 180ms cubic-bezier(0.25, 1.3, 0.45, 1);
+    transform-origin: top left;
+  }
+  .menu-item {
+    display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 4px 10px; border-radius: 8px; border: none; background: transparent;
+    font-size: 13px; color: var(--label); text-align: left; cursor: default;
+  }
+  .menu-item:hover:not(:disabled), .menu-item:focus-visible { background: var(--accent); color: var(--accent-text); outline: none; }
+  .menu-item:disabled { color: var(--label-3); }
+  .menu-separator { height: 1px; margin: 5px 10px; background: var(--separator); }
 }
 
-/* Speaker color custom property classes */
-.speaker-0 { --speaker-color: #60a5fa; }
-.speaker-1 { --speaker-color: #f472b6; }
-.speaker-2 { --speaker-color: #a78bfa; }
-.speaker-3 { --speaker-color: #34d399; }
-.speaker-4 { --speaker-color: #fbbf24; }
-.speaker-5 { --speaker-color: #fb923c; }
-.speaker-6 { --speaker-color: #22d3ee; }
-.speaker-7 { --speaker-color: #e879f9; }
-
-/* Gradient border utility */
-.glow-border {
-  position: relative;
-}
-.glow-border::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(6,182,212,0.3));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 0.3s;
-  pointer-events: none;
-}
-.glow-border:hover::before {
-  opacity: 1;
+/* Glass material for the capsule / panel shapes */
+@layer components {
+  .glass-capsule, .glass-panel {
+    background:
+      linear-gradient(180deg, var(--glass-tint), transparent 60%),
+      var(--glass);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-glass), inset 0 1px 0 var(--glass-highlight);
+  }
 }
 
 /* Animations */
@@ -64,19 +388,24 @@ body {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95) translateY(8px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
 }
-
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 8px rgba(34,211,238,0.3), 0 0 20px rgba(34,211,238,0.1); }
-  50% { box-shadow: 0 0 16px rgba(34,211,238,0.5), 0 0 40px rgba(34,211,238,0.2); }
+@keyframes sheetIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
-
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+@keyframes recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 .btn-loading {
@@ -88,18 +417,32 @@ body {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 5px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+}
+
+/* Reduce Transparency: every glass surface becomes opaque */
+@media (prefers-reduced-transparency: reduce) {
+  [data-vibrancy] body { background: var(--window); }
+  [data-vibrancy] .sidebar-surface { background: var(--window); }
+  .glass, .glass-capsule, .glass-panel, .btn-glass, .sheet, .menu {
+    background: var(--grouped) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .scroll-edge-top { background: var(--content); backdrop-filter: none; mask-image: none; }
+}
+
+/* Scrollbar — thin overlay style */
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #c5c8d6; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #a0a5b8; }
-[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #1a1d35; }
-[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #2a2d50; }
+::-webkit-scrollbar-thumb { background: var(--fill-strong); border-radius: 10px; border: 3px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--label-3); background-clip: content-box; border: 3px solid transparent; }
