@@ -73,6 +73,24 @@ export async function fetchDevices() {
   return res.json();
 }
 
-export function getExportUrl(id) {
-  return `${API}/sessions/${id}/export`;
+export function getExportUrl(sessionIds, options = {}) {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(options)) {
+    params.set(k, typeof v === "boolean" ? (v ? "1" : "0") : v);
+  }
+  const path = sessionIds.length === 1 ? `sessions/${sessionIds[0]}/export` : "sessions/export";
+  if (sessionIds.length > 1) params.set("ids", sessionIds.join(","));
+  const qs = params.toString();
+  return `${API}/${path}${qs ? `?${qs}` : ""}`;
+}
+
+// The server sends Content-Disposition, so this downloads in place: no blank tab in the browser,
+// and Electron shows its save dialog (see will-download in electron/main.js)
+export function downloadFile(url) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }

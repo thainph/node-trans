@@ -3,10 +3,10 @@ import { useI18n } from "../i18n/I18nContext";
 
 const overlay = "fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-[fadeIn_150ms_ease-out]";
 const panel = "bg-white/95 dark:bg-[#0d0f1a]/95 backdrop-blur-xl border border-gray-200/50 dark:border-indigo-500/15 rounded-2xl shadow-2xl shadow-indigo-500/10 w-full max-w-sm mx-4 p-5 animate-[scaleIn_150ms_ease-out]";
-const btnPrimary = "px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer border-none transition-all duration-200 active:scale-95";
-const btnCancel = "px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-all duration-200 active:scale-95 bg-gray-100/80 dark:bg-white/5 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-indigo-500/10 hover:bg-gray-200/80 dark:hover:bg-white/10";
+export const btnPrimary = "px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer border-none transition-all duration-200 active:scale-95";
+export const btnCancel = "px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-all duration-200 active:scale-95 bg-gray-100/80 dark:bg-white/5 text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-indigo-500/10 hover:bg-gray-200/80 dark:hover:bg-white/10";
 
-function ModalBase({ open, onClose, children }) {
+export function ModalBase({ open, onClose, children }) {
   useEffect(() => {
     if (!open) return;
     const handler = (e) => { if (e.key === "Escape") onClose(); };

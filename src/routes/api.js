@@ -278,6 +278,45 @@ router.get("/sessions", async (req, res) => {
   res.json(getSessions(limit, offset));
 });
 
+// Export
+function sendExport(res, result) {
+  // ASCII fallback for old clients, RFC 5987 form for titles with diacritics
+  const asciiName = result.filename.normalize("NFD").replace(/[^\x20-\x7e]/g, "").replace(/"/g, "");
+  res.setHeader("Content-Type", result.mime);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(result.filename)}`
+  );
+  res.send(result.body);
+}
+
+// Registered before /sessions/:id so "export" is not taken as an id
+router.get("/sessions/export", async (req, res) => {
+  const ids = String(req.query.ids || "").split(",").map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  if (ids.length === 0) return apiError(res, 400, ErrorCodes.INVALID_INPUT, "ids is required");
+  try {
+    const { exportSessions, normalizeExportOptions } = await lazyExport();
+    const result = await exportSessions(ids, normalizeExportOptions(req.query));
+    if (!result) return apiError(res, 404, ErrorCodes.NOT_FOUND, "Session not found");
+    sendExport(res, result);
+  } catch (err) {
+    log.error("Export sessions error", err);
+    apiError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to export sessions");
+  }
+});
+
+router.get("/sessions/:id/export", async (req, res) => {
+  try {
+    const { exportSession, normalizeExportOptions } = await lazyExport();
+    const result = await exportSession(req.params.id, normalizeExportOptions(req.query));
+    if (!result) return apiError(res, 404, ErrorCodes.NOT_FOUND, "Session not found");
+    sendExport(res, result);
+  } catch (err) {
+    log.error("Export session error", err);
+    apiError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to export session");
+  }
+});
+
 router.get("/sessions/:id", async (req, res) => {
   const { getSession, getUtterances, getSpeakerAliases } = await lazyHistory();
   const session = getSession(req.params.id);
@@ -321,17 +360,6 @@ router.delete("/sessions/:id", async (req, res) => {
     log.error("Delete session error", err);
     apiError(res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to delete session");
   }
-});
-
-// Export
-router.get("/sessions/:id/export", async (req, res) => {
-  const { exportSessionToMarkdown } = await lazyExport();
-  const result = exportSessionToMarkdown(req.params.id);
-  if (!result) return apiError(res, 404, ErrorCodes.NOT_FOUND, "Session not found");
-
-  res.setHeader("Content-Type", "text/markdown; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename="session-${req.params.id}.md"`);
-  res.send(result.markdown);
 });
 
 export default router;

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, systemPreferences, dialog, shell } from "electron";
+import { app, BrowserWindow, ipcMain, systemPreferences, dialog, shell, session } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
@@ -287,6 +287,8 @@ app.whenReady().then(async () => {
     }
   }
 
+  setupDownloads();
+
   // Start the Express server
   const { startServer } = await import("../src/server.js");
   const port = await startServer();
@@ -321,6 +323,24 @@ app.whenReady().then(async () => {
     }
   });
 });
+
+const DOWNLOAD_FILTERS = {
+  docx: { name: "Word", extensions: ["docx"] },
+  md: { name: "Markdown", extensions: ["md"] },
+  txt: { name: "Text", extensions: ["txt"] },
+  zip: { name: "Zip", extensions: ["zip"] },
+};
+
+// Session exports arrive as normal downloads; without a save path Electron prompts with this dialog
+function setupDownloads() {
+  session.defaultSession.on("will-download", (_e, item) => {
+    const filter = DOWNLOAD_FILTERS[path.extname(item.getFilename()).slice(1).toLowerCase()];
+    item.setSaveDialogOptions({
+      defaultPath: path.join(app.getPath("downloads"), item.getFilename()),
+      filters: filter ? [filter] : [],
+    });
+  });
+}
 
 app.on("window-all-closed", () => {
   app.quit();

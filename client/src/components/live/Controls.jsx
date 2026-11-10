@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useSocketActions, useSession, useUI } from "../../context/SocketContext";
 import { useI18n } from "../../i18n/I18nContext";
-import { deleteSession, renameSession, getExportUrl, fetchSettings, saveSettings } from "../../utils/api";
+import { deleteSession, renameSession, fetchSettings, saveSettings } from "../../utils/api";
 import { CONTEXT_PRESETS, LANGUAGE_OPTIONS } from "../../utils/constants";
 import { ConfirmDialog, PromptDialog } from "../Modal";
+import ExportDialog from "./ExportDialog";
 
 const btnBase = "px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer border-none whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 text-white";
 const btnAction = "bg-transparent border-none cursor-pointer text-sm px-2 py-1 rounded-lg transition-all duration-200 hover:bg-gray-100/60 dark:hover:bg-white/5 active:scale-95 text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300";
@@ -43,6 +44,7 @@ export default function Controls() {
   const [elapsed, setElapsed] = useState(0);
   const [renameModal, setRenameModal] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [contextPreset, setContextPreset] = useState("none");
   const [customContext, setCustomContext] = useState("");
   const [audioSource, setAudioSource] = useState("mic");
@@ -216,7 +218,7 @@ export default function Controls() {
             }}>
               🖊️
             </button>
-            <button className={btnAction} title={t("export")} onClick={() => window.open(getExportUrl(selectedSessionId), "_blank")}>
+            <button className={btnAction} title={t("export")} onClick={() => setExportOpen(true)}>
               📥
             </button>
             <button className={`${btnAction} hover:text-red-500! dark:hover:text-red-400!`} title={t("delete")} onClick={() => setConfirmDelete(true)}>
@@ -276,6 +278,8 @@ export default function Controls() {
         }}
         onCancel={() => setConfirmDelete(false)}
       />
+
+      <ExportDialog open={exportOpen} sessionIds={[selectedSessionId]} onClose={() => setExportOpen(false)} />
 
       <PromptDialog
         open={!!renameModal}

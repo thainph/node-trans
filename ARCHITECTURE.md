@@ -89,7 +89,7 @@ Audio device (mic / system audio)
 | `local/setup-log.js` | Wraps setup event callbacks with persistent file logging. Logs progress at milestones (0%, 10%, ..., 100%) |
 | `storage/history.js` | SQLite (better-sqlite3). CRUD for sessions, utterances, speaker aliases. Supports session resumption |
 | `storage/settings.js` | Reads/writes `settings.json`. Loaded synchronously |
-| `storage/export.js` | Exports a session to Markdown format with speaker aliases, timestamps, and duration |
+| `storage/export.js` | Exports sessions to Markdown, plain text or Word (.docx), in a conversation or bilingual-table layout; several sessions are bundled into a .zip (`GET /api/sessions/:id/export`, `GET /api/sessions/export?ids=`) |
 | `routes/api.js` | REST API: settings, sessions, devices, local setup (Whisper/Diarize via SSE), focused status checks (Whisper, Ollama, LibreTranslate, Diarize) |
 
 ### Frontend (`client/src/`)

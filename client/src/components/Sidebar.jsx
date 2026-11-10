@@ -3,6 +3,7 @@ import { useSocketActions, useSession, useUI } from "../context/SocketContext";
 import { useI18n } from "../i18n/I18nContext";
 import { fetchSessions, fetchSession, deleteSession } from "../utils/api";
 import { ConfirmDialog } from "./Modal";
+import ExportDialog from "./live/ExportDialog";
 
 function formatDuration(startedAt, endedAt) {
   if (!endedAt) return "";
@@ -79,6 +80,7 @@ export default function Sidebar() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [selectMode, setSelectMode] = useState(false);
   const [checkedIds, setCheckedIds] = useState(new Set());
+  const [exportIds, setExportIds] = useState(null);
   const longPressTimer = useRef(null);
   const longPressedRef = useRef(false);
 
@@ -263,6 +265,13 @@ export default function Sidebar() {
             {checkedIds.size > 0 ? `${checkedIds.size}` : ""}
           </span>
           <button
+            className="bg-linear-to-r from-indigo-600 to-cyan-500 text-white border-none px-2 py-1 rounded-lg cursor-pointer text-[0.68rem] font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+            disabled={checkedIds.size === 0}
+            onClick={() => setExportIds([...checkedIds])}
+          >
+            {t("export")}
+          </button>
+          <button
             className="bg-linear-to-r from-rose-600 to-pink-500 text-white border-none px-2 py-1 rounded-lg cursor-pointer text-[0.68rem] font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
             disabled={checkedIds.size === 0}
             onClick={handleBulkDelete}
@@ -327,6 +336,13 @@ export default function Sidebar() {
         confirmColor="red"
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}
+      />
+
+      <ExportDialog
+        open={!!exportIds}
+        sessionIds={exportIds || []}
+        onClose={() => setExportIds(null)}
+        onExported={handleCancelSelect}
       />
     </div>
   );
