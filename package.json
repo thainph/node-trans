@@ -1,6 +1,6 @@
 {
   "name": "node-trans",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Real-time audio translation app using Soniox API",
   "type": "module",
   "main": "electron/main.js",
