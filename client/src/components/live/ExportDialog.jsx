@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useI18n } from "../../i18n/I18nContext";
 import { getExportUrl, downloadFile } from "../../utils/api";
 import { ModalBase } from "../Modal";
+import { useSocketActions } from "../../context/SocketContext";
+import { reportError } from "../../utils/errors";
 
 const STORAGE_KEY = "node-trans-export";
 const DEFAULTS = { format: "docx", content: "both", layout: "chat", group: false, timestamps: true, speakers: true, metadata: true };
@@ -31,6 +33,7 @@ function loadOptions() {
   try {
     return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
   } catch {
+    // Corrupt saved options — just start from the defaults
     return DEFAULTS;
   }
 }
@@ -59,12 +62,22 @@ export default function ExportDialog({ open, sessionIds, onClose, onExported }) 
 
 function ExportForm({ sessionIds, onClose, onExported }) {
   const { t, lang } = useI18n();
+  const { dispatch } = useSocketActions();
   const [opts, setOpts] = useState(loadOptions);
   const set = (key, value) => setOpts((o) => ({ ...o, [key]: value }));
 
   const handleExport = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(opts));
-    downloadFile(getExportUrl(sessionIds, { ...opts, lang }));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(opts));
+    } catch {
+      // Remembering the options is optional
+    }
+    try {
+      downloadFile(getExportUrl(sessionIds, { ...opts, lang }));
+    } catch (err) {
+      reportError(dispatch, err, "errExport");
+      return;
+    }
     onClose();
     onExported?.();
   };

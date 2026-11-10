@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { AudioLines, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useI18n } from "../i18n/I18nContext";
 import { ModalBase } from "./Modal";
+import { useSocketActions } from "../context/SocketContext";
+import { fetchSettings, fetchLocalStatus } from "../utils/api";
+import { reportError } from "../utils/errors";
 
 const ITEM_LABEL = {
   whisper: "startupMissingWhisper",
@@ -18,6 +21,7 @@ function StatusIcon({ state }) {
 
 export default function StartupCheck() {
   const { t } = useI18n();
+  const { dispatch } = useSocketActions();
   const [visible, setVisible] = useState(false);
   const [missing, setMissing] = useState([]); // ["whisper", "diarize", "ollama"]
   const [installing, setInstalling] = useState(false);
@@ -38,28 +42,29 @@ export default function StartupCheck() {
     if (checked.current) return;
     checked.current = true;
 
-    fetch("/api/settings", { cache: "no-store" })
-      .then((r) => r.json())
+    // A failed check is reported and skipped, rather than shown as "missing"
+    const check = (kind, model) => fetchLocalStatus(kind, model).catch((err) => {
+      reportError(dispatch, err, "errStartupCheck");
+      return null;
+    });
+
+    fetchSettings()
       .then(async (settings) => {
         if (settings.transcriptionEngine !== "local-whisper") return;
         settingsRef.current = settings;
 
         const model = settings.whisperModel || "base";
         const checks = await Promise.all([
-          fetch(`/api/local/status/whisper?model=${encodeURIComponent(model)}`).then((r) => r.json()).catch(() => null),
-          settings.enableDiarization && settings.hfToken
-            ? fetch("/api/local/status/diarize").then((r) => r.json()).catch(() => null)
-            : null,
-          settings.localTranslationEngine === "ollama"
-            ? fetch(`/api/local/status/ollama?model=${encodeURIComponent(settings.ollamaModel || "")}`).then((r) => r.json()).catch(() => null)
-            : null,
+          check("whisper", model),
+          settings.enableDiarization && settings.hfToken ? check("diarize") : null,
+          settings.localTranslationEngine === "ollama" ? check("ollama", settings.ollamaModel || "") : null,
         ]);
 
         const [whisper, diarize, ollama] = checks;
         const needs = [];
 
-        if (!whisper?.whisperPyReady) needs.push("whisper");
-        else if (!whisper?.whisperModelDownloaded) needs.push("whisper-model");
+        if (whisper && !whisper.whisperPyReady) needs.push("whisper");
+        else if (whisper && !whisper.whisperModelDownloaded) needs.push("whisper-model");
         if (diarize && !diarize.diarizePyReady) needs.push("diarize");
         if (ollama && !ollama.ollamaAvailable) needs.push("ollama");
 
@@ -68,7 +73,7 @@ export default function StartupCheck() {
           setVisible(true);
         }
       })
-      .catch(() => {});
+      .catch((err) => reportError(dispatch, err, "errStartupCheck"));
   }, []);
 
   useEffect(() => {

@@ -11,6 +11,7 @@ import { existsSync } from "fs";
 import apiRoutes from "./routes/api.js";
 import { loadSettings } from "./storage/settings.js";
 import { createLogger } from "./logger.js";
+import { apiError, ErrorCodes } from "./errors.js";
 
 const log = createLogger("server");
 
@@ -94,6 +95,20 @@ app.use(express.static(path.join(__dirname, "../dist"), {
 }));
 app.use("/api", apiRoutes);
 
+// Last-resort error handler: any route error (sync or rejected promise) becomes a JSON error
+// the UI can show, instead of an HTML stack trace or a hung request.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  log.error(`Request failed: ${req.method} ${req.originalUrl}`, err);
+  if (res.headersSent) return res.end();
+  const status = err.status || err.statusCode || 500;
+  const code = typeof err.code === "string" ? err.code
+    : status < 500 ? ErrorCodes.INVALID_INPUT
+    : ErrorCodes.INTERNAL_ERROR;
+  apiError(res, status, code,
+    err.expose === false ? "Internal server error" : (err.message || "Internal server error"));
+});
+
 // Active sessions per socket
 const activeSessions = new Map();
 const SESSION_TTL = 4 * 60 * 60 * 1000; // 4 hours max session
@@ -111,14 +126,25 @@ const cleanupInterval = setInterval(() => {
 
 // Log and emit an error event to the client in one call
 function emitError(socket, payload) {
-  log.warn(`Emit error: ${payload.key}`, { socketId: socket.id, ...payload.params && { params: payload.params } });
+  log.warn(`Emit error: ${payload.key || payload.message}`, { socketId: socket.id, ...payload.params && { params: payload.params } });
   socket.emit("error", payload);
 }
 
 io.on("connection", (socket) => {
   log.info("Client connected", { socketId: socket.id });
 
-  socket.on("start-listening", async (opts) => {
+  // Every handler is guarded: a failure is logged and reported to this client
+  // instead of escaping as an uncaught exception / unhandled rejection.
+  const on = (event, handler) => socket.on(event, async (...args) => {
+    try {
+      await handler(...args);
+    } catch (err) {
+      log.error(`Socket handler "${event}" failed`, err);
+      emitError(socket, { message: `${event} failed: ${err?.message || err}` });
+    }
+  });
+
+  on("start-listening", async (opts) => {
     // Fire-and-forget cleanup of any existing session (captures are stopped synchronously)
     stopSession(socket.id).catch(() => {});
 
@@ -415,7 +441,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("pause-listening", () => {
+  on("pause-listening", () => {
     const state = activeSessions.get(socket.id);
     if (!state || state.paused) return;
 
@@ -427,7 +453,7 @@ io.on("connection", (socket) => {
     log.info("Paused", { socketId: socket.id });
   });
 
-  socket.on("resume-listening", () => {
+  on("resume-listening", () => {
     const state = activeSessions.get(socket.id);
     if (!state || !state.paused) return;
 
@@ -439,12 +465,12 @@ io.on("connection", (socket) => {
     log.info("Resumed", { socketId: socket.id });
   });
 
-  socket.on("stop-listening", () => {
+  on("stop-listening", () => {
     socket.emit("status", { listening: false });
     stopSession(socket.id).catch((err) => log.error("Stop error", err));
   });
 
-  socket.on("disconnect", async () => {
+  on("disconnect", async () => {
     await stopSession(socket.id);
     log.info("Client disconnected", { socketId: socket.id });
   });
@@ -473,35 +499,108 @@ async function stopSession(socketId) {
   ]);
 }
 
-// Start server
-export async function startServer(overridePort) {
-  const settings = loadSettings();
-  const PORT = 3333;
-  return new Promise((resolve) => {
-    server.listen(PORT, () => {
-      log.info(`Server running at http://localhost:${PORT}`);
-      resolve(PORT);
-    });
+const DEFAULT_PORT = 3333;
+
+function listenOnce(port) {
+  return new Promise((resolve, reject) => {
+    const onError = (err) => {
+      server.off("listening", onListening);
+      reject(err);
+    };
+    const onListening = () => {
+      server.off("error", onError);
+      resolve(server.address().port);
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(port);
   });
 }
 
+// Turn low-level listen errors into a message a user can act on
+function describeListenError(err, port) {
+  let message;
+  if (err.code === "EADDRINUSE") {
+    message = `Port ${port} is already in use by another program (another Node Trans window or a dev server?). ` +
+      `Close that program, or start with a different port: PORT=<number>.`;
+  } else if (err.code === "EACCES") {
+    message = `Not allowed to open port ${port}. Choose a port above 1024: PORT=<number>.`;
+  } else {
+    message = `Could not start the local server on port ${port}: ${err.message}`;
+  }
+  const wrapped = new Error(message, { cause: err });
+  wrapped.code = err.code;
+  return wrapped;
+}
+
+/**
+ * Start the HTTP + Socket.IO server. Resolves with the port actually used.
+ * The port is PORT (env) or 3333. With `allowFallbackPort` (Electron), a busy port
+ * falls back to any free port instead of failing — the window loads whatever port we got.
+ */
+export async function startServer({ allowFallbackPort = false } = {}) {
+  loadSettings(); // fail early on a corrupt settings file
+  const preferred = Number(process.env.PORT) || DEFAULT_PORT;
+  let port;
+  try {
+    port = await listenOnce(preferred);
+  } catch (err) {
+    if (err.code !== "EADDRINUSE" || !allowFallbackPort) throw describeListenError(err, preferred);
+    log.warn(`Port ${preferred} is in use, using a free port instead`);
+    try {
+      port = await listenOnce(0);
+    } catch (err2) {
+      throw describeListenError(err2, preferred);
+    }
+  }
+  log.info(`Server running at http://localhost:${port}`);
+  return port;
+}
+
+let stopping = null;
+
+// Stop every active session (so the DB marks them ended), disconnect all clients and close the
+// HTTP server. Safe to call more than once.
 export function stopServer() {
-  return new Promise((resolve) => {
-    server.close(() => resolve());
-  });
+  stopping ??= (async () => {
+    clearInterval(cleanupInterval);
+    await Promise.all([...activeSessions.keys()].map((id) =>
+      stopSession(id).catch((err) => log.error("Stopping session on shutdown failed", err))));
+    // io.close() disconnects every socket and closes the HTTP server; drop idle keep-alive
+    // connections too, otherwise close() waits for them
+    await new Promise((resolve) => {
+      io.close(() => resolve());
+      server.closeAllConnections?.();
+    });
+  })();
+  return stopping;
 }
 
-// Graceful shutdown — clean up all active sessions and timers
-async function shutdown() {
-  clearInterval(cleanupInterval);
-  const stops = [...activeSessions.keys()].map((id) => stopSession(id).catch(() => {}));
-  await Promise.all(stops);
-  server.close();
-}
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
 
-// Auto-start when running directly (not via Electron)
+// Auto-start when running directly (not via Electron). Electron's main.js installs its own
+// process-level handlers and starts the server itself.
 if (!process.env.ELECTRON) {
-  startServer();
+  // Keep serving after an unexpected error: log it and tell connected clients what happened
+  const reportFatal = (label) => (err) => {
+    log.error(label, err);
+    io.emit("error", { message: `${label}: ${err?.message || err}` });
+  };
+  process.on("uncaughtException", reportFatal("Unexpected server error"));
+  process.on("unhandledRejection", reportFatal("Unhandled server error"));
+
+  // Graceful shutdown (Ctrl+C / kill): end sessions, disconnect clients, then actually exit
+  const shutdown = (signal) => {
+    log.info(`Received ${signal}, shutting down`);
+    setTimeout(() => process.exit(0), 3000).unref(); // don't hang on a stuck session
+    stopServer().finally(() => process.exit(0));
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+
+  startServer().catch((err) => {
+    // Without a port the server can't do anything — explain why and exit cleanly (no stack trace)
+    log.error("Server failed to start", err);
+    console.error(`\n✖ Node Trans could not start: ${err.message}\n`);
+    process.exit(1);
+  });
 }

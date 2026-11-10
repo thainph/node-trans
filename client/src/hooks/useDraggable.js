@@ -6,7 +6,9 @@ function loadPosition(defaultPos) {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) return JSON.parse(saved);
-  } catch {}
+  } catch {
+    // Missing/corrupt saved position — use the default spot
+  }
   return defaultPos;
 }
 

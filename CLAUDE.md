@@ -40,9 +40,16 @@ Releases: pushing a `v*` tag triggers `.github/workflows/release.yml` (builds ma
 ES Modules throughout (`"type": "module"`).
 
 ### Ports / URLs
-- Backend: `http://localhost:3333` (hardcoded in `src/server.js` `startServer`)
+- Backend: `http://localhost:3333` (`PORT` env overrides). The packaged Electron app falls back to a free port when 3333 is busy and loads whatever port `startServer` returns; web mode and Electron dev fail with a clear message instead (the Vite proxy expects 3333).
+- Only one Electron instance runs (`requestSingleInstanceLock`, skipped in dev); a second launch focuses the existing window.
 - Vite dev: `http://localhost:5173`, which proxies `/api` and `/socket.io` to 3333 (`client/vite.config.js`)
 - `public/` is legacy. The server serves `dist/`.
+
+### Error handling
+Errors must never crash the app or fail silently; show the user a specific message.
+- Electron main: `reportMainError()` in `electron/main.js` handles `uncaughtException` / `unhandledRejection` / child-process crashes and sends them to the UI via the `app:error` IPC (native dialog before the window exists). Server start failures, renderer crashes, failed page loads and hangs show dialogs that offer Retry / Reload / Open Logs / Quit.
+- Server: socket handlers go through the guarded `on()` helper (errors are emitted to that client as `error`); Express has a final JSON error handler; web mode logs process-level errors and broadcasts them.
+- Renderer: error boundaries + global `error` / `unhandledrejection` handlers show toasts; `utils/api.js` throws `Error`s carrying the server's message.
 
 ### Backend (`src/`)
 - **server.js**: Express 5 + Socket.IO, exporting `startServer`/`stopServer` (Electron imports these). Heavy modules (history, soniox, capture, whisper, diarize, devices) are lazy-loaded through cached `import()` promises. Per-socket session state lives in the in-memory `activeSessions` Map. Socket events: `start-listening` / `pause-listening` / `resume-listening` / `stop-listening` in; `status` / `partial-result` / `utterance` / `error` out.

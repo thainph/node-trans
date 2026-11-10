@@ -1,6 +1,7 @@
 import { useSocketActions, useUI } from "../../context/SocketContext";
 import { useI18n } from "../../i18n/I18nContext";
 import { saveOverlaySettings } from "../../utils/api";
+import { reportError } from "../../utils/errors";
 
 // Locale labels end with ":" for the old stacked layout; rows don't need it
 const strip = (str) => str.replace(/:\s*$/, "");
@@ -61,7 +62,8 @@ export default function OverlaySettings() {
 
   const update = (patch) => {
     dispatch({ type: "UPDATE_OVERLAY_SETTINGS", payload: patch });
-    saveOverlaySettings({ ...s, ...patch }).catch(() => {});
+    // Sliders save on every step; reportError dedupes so an outage shows one toast
+    saveOverlaySettings({ ...s, ...patch }).catch((err) => reportError(dispatch, err, "errSaveOverlaySettings"));
   };
 
   const isDark = s.bgColor === "dark";

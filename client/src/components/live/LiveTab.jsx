@@ -8,6 +8,8 @@ import SpeakerList from "../history/SpeakerList";
 import Controls from "./Controls";
 import StatusBar from "../StatusBar";
 import Transcript from "./Transcript";
+import ErrorBoundary from "../ErrorBoundary";
+import { reportError } from "../../utils/errors";
 
 const Dot = () => <span className="text-label-3" aria-hidden="true">·</span>;
 
@@ -96,14 +98,16 @@ export default function LiveTab() {
 
   return (
     <div className="absolute inset-0 flex flex-col">
-      <Transcript
-        header={header}
-        utterances={utterances}
-        speakerColorMap={speakerColorMap}
-        speakerAliases={selectedSessionData?.speakerAliases}
-        partialResults={partialResults}
-        bottomInset={barHeight + 12}
-      />
+      <ErrorBoundary name="transcript" variant="inline" resetKey={selectedSessionId}>
+        <Transcript
+          header={header}
+          utterances={utterances}
+          speakerColorMap={speakerColorMap}
+          speakerAliases={selectedSessionData?.speakerAliases}
+          partialResults={partialResults}
+          bottomInset={barHeight + 12}
+        />
+      </ErrorBoundary>
 
       {/* Floating glass bottom bar: status + session setup */}
       <div className="absolute inset-x-0 bottom-0 z-10 p-3 flex justify-center pointer-events-none">
@@ -122,7 +126,12 @@ export default function LiveTab() {
           const { speaker, currentName } = speakerModal;
           setSpeakerModal(null);
           if (newName !== currentName) {
-            await setSpeakerAlias(selectedSessionId, speaker, newName);
+            try {
+              await setSpeakerAlias(selectedSessionId, speaker, newName);
+            } catch (err) {
+              reportError(dispatch, err, "errRenameSpeaker");
+              return;
+            }
             dispatch({
               type: "SELECT_SESSION",
               payload: {

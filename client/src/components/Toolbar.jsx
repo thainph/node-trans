@@ -6,6 +6,7 @@ import { useCommand, shortcutLabel } from "../hooks/useCommand";
 import { useRecording, formatDuration } from "../hooks/useRecording";
 import { showContextMenu } from "../utils/contextMenu";
 import { deleteSession, renameSession } from "../utils/api";
+import { reportError } from "../utils/errors";
 import { ConfirmDialog, PromptDialog } from "./Modal";
 import ExportDialog from "./live/ExportDialog";
 
@@ -210,7 +211,12 @@ export default function Toolbar({ sidebarOpen, onToggleSidebar, onOpenSettings }
         onConfirm={async () => {
           const id = selectedSessionId;
           setConfirmDelete(false);
-          await deleteSession(id);
+          try {
+            await deleteSession(id);
+          } catch (err) {
+            reportError(dispatch, err, "errDeleteSession");
+            return;
+          }
           dispatch({ type: "DESELECT_SESSION" });
           dispatch({ type: "REFRESH_SESSION_LIST" });
         }}
@@ -226,7 +232,12 @@ export default function Toolbar({ sidebarOpen, onToggleSidebar, onOpenSettings }
         onCancel={() => setRenameModal(null)}
         onConfirm={async (newTitle) => {
           setRenameModal(null);
-          await renameSession(selectedSessionId, newTitle);
+          try {
+            await renameSession(selectedSessionId, newTitle);
+          } catch (err) {
+            reportError(dispatch, err, "errRenameSession");
+            return;
+          }
           dispatch({ type: "UPDATE_SESSION_DATA", payload: { title: newTitle } });
           dispatch({ type: "REFRESH_SESSION_LIST" });
         }}

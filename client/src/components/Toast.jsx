@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { useSocketActions, useUI } from "../context/SocketContext";
 import { useI18n } from "../i18n/I18nContext";
+import { errorReason } from "../utils/errors";
 
 const icons = {
   error:   { Icon: AlertCircle, cls: "text-sys-red" },
@@ -9,10 +10,22 @@ const icons = {
   "":      { Icon: Info, cls: "text-accent" },
 };
 
+/**
+ * Toast text: `key` (i18n, with `{reason}` filled from `error`), else the raw `message`.
+ * A toast with only `error` shows the reason itself.
+ */
+function formatToast(t, toast) {
+  const reason = toast.error ? errorReason(t, toast.error) : "";
+  if (toast.key) return t(toast.key, { ...toast.params, reason });
+  if (toast.message) return reason ? `${toast.message}: ${reason}` : toast.message;
+  return reason;
+}
+
 function ToastItem({ toast }) {
   const { dispatch } = useSocketActions();
   const { t } = useI18n();
   const [shown, setShown] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", payload: toast.id });
 
@@ -23,13 +36,15 @@ function ToastItem({ toast }) {
   }, []);
 
   useEffect(() => {
-    const ms = toast.type === "error" ? 7000 : 3500;
+    // Errors stay long enough to read; hovering pauses the timer
+    if (hovered) return;
+    const ms = toast.type === "error" ? 8000 : 3500;
     const timer = setTimeout(dismiss, ms);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast.id]);
+  }, [toast.id, hovered]);
 
-  const text = toast.key ? t(toast.key, toast.params) : (toast.message || "");
+  const text = formatToast(t, toast);
 
   useEffect(() => {
     if (toast.type === "error") {
@@ -43,12 +58,14 @@ function ToastItem({ toast }) {
   return (
     <div
       role={toast.type === "error" ? "alert" : "status"}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className={`group flex items-start gap-2.5 w-[320px] max-w-[calc(100vw-24px)] pl-3 pr-2 py-2.5 rounded-[16px] text-[12px] text-label glass-panel pointer-events-auto transition-[transform,opacity] duration-200 ease-out ${
         shown ? "translate-x-0 opacity-100" : "translate-x-6 opacity-0"
       }`}
     >
       <Icon size={16} strokeWidth={1.75} className={`shrink-0 mt-px ${cls}`} />
-      <span className="selectable flex-1 leading-snug break-words line-clamp-3" title={text}>{text}</span>
+      <span className={`selectable flex-1 leading-snug break-words ${toast.type === "error" ? "line-clamp-5" : "line-clamp-3"}`} title={text}>{text}</span>
       <button
         onClick={dismiss}
         className="btn-icon min-w-5 h-5 px-0 -mt-0.5 opacity-60 hover:opacity-100"

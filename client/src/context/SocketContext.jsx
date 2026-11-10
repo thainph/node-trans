@@ -1,6 +1,8 @@
 import { createContext, useContext, useReducer, useEffect, useMemo } from "react";
 import { io } from "socket.io-client";
 import { getSpeakerIndex } from "../utils/speakerColors";
+import { fetchOverlaySettings } from "../utils/api";
+import { reportError } from "../utils/errors";
 
 const SocketActionsContext = createContext(null);
 const SessionContext = createContext(null);
@@ -26,7 +28,9 @@ function loadOverlaySettings() {
   try {
     const saved = localStorage.getItem("overlay-settings");
     if (saved) return { ...OVERLAY_DEFAULTS, ...JSON.parse(saved) };
-  } catch {}
+  } catch {
+    // Missing/corrupt local copy — the server copy is loaded on mount anyway
+  }
   return { ...OVERLAY_DEFAULTS };
 }
 
@@ -47,11 +51,18 @@ const initialState = {
   listeningSince: null,
   pausedElapsed: 0,
   sessionListVersion: 0,
+  // Bumped when the connection comes back after an outage, so data loaded at startup is fetched again
+  reconnectCount: 0,
   overlayVisible: false,
   overlaySettings: loadOverlaySettings(),
   activeContext: null,
   nextUtteranceId: 1,
+  connectionLost: false,
 };
+
+function newToast(toast) {
+  return { id: Date.now() + Math.random(), key: null, message: null, ...toast };
+}
 
 function reducer(state, action) {
   switch (action.type) {
@@ -173,14 +184,27 @@ function reducer(state, action) {
         toasts: [...state.toasts, { id, key: err.key || null, params: err.params, message: err.message || null, type: "error" }],
       };
     }
-    case "CONNECTED":
+    case "CONNECTED": {
+      // Announce recovery once after a reported outage
+      const toasts = state.connectionLost
+        ? [...state.toasts, newToast({ key: "connectionRestored", type: "success" })]
+        : state.toasts;
+      const recovered = state.connectionLost
+        ? { connectionLost: false, reconnectCount: state.reconnectCount + 1, sessionListVersion: state.sessionListVersion + 1 }
+        : {};
       if (!state.isListening) {
-        return { ...state, statusKey: "connected", statusClass: "" };
+        return { ...state, statusKey: "connected", statusClass: "", toasts, ...recovered };
       }
-      return state;
+      return state.connectionLost ? { ...state, toasts, ...recovered } : state;
+    }
     case "DISCONNECTED":
       return {
         ...state,
+        // One toast per outage, not one per reconnect attempt
+        connectionLost: true,
+        toasts: state.connectionLost
+          ? state.toasts
+          : [...state.toasts, newToast({ key: "connectionLost", type: "error" })],
         isListening: false,
         isPaused: false,
         pendingAction: false,
@@ -193,7 +217,14 @@ function reducer(state, action) {
       const id = Date.now() + Math.random();
       return {
         ...state,
-        toasts: [...state.toasts, { id, message: action.payload.message, type: action.payload.type || "" }],
+        toasts: [...state.toasts, {
+          id,
+          key: action.payload.key || null,
+          params: action.payload.params,
+          error: action.payload.error,
+          message: action.payload.message || null,
+          type: action.payload.type || "",
+        }],
       };
     }
     case "DISMISS_TOAST":
@@ -240,7 +271,11 @@ function reducer(state, action) {
     }
     case "UPDATE_OVERLAY_SETTINGS": {
       const overlaySettings = { ...state.overlaySettings, ...action.payload };
-      localStorage.setItem("overlay-settings", JSON.stringify(overlaySettings));
+      try {
+        localStorage.setItem("overlay-settings", JSON.stringify(overlaySettings));
+      } catch {
+        // Storage full/blocked — the server keeps the authoritative copy
+      }
       if (window.electronAPI?.sendOverlaySettings) {
         window.electronAPI.sendOverlaySettings(overlaySettings);
       }
@@ -287,9 +322,10 @@ export function SocketProvider({ children }) {
     overlayVisible: state.overlayVisible,
     overlaySettings: state.overlaySettings,
     sessionListVersion: state.sessionListVersion,
+    reconnectCount: state.reconnectCount,
     listeningSince: state.listeningSince,
     pausedElapsed: state.pausedElapsed,
-  }), [state.statusKey, state.statusParams, state.statusClass, state.toasts, state.overlayVisible, state.overlaySettings, state.sessionListVersion, state.listeningSince, state.pausedElapsed]);
+  }), [state.statusKey, state.statusParams, state.statusClass, state.toasts, state.overlayVisible, state.overlaySettings, state.sessionListVersion, state.reconnectCount, state.listeningSince, state.pausedElapsed]);
 
   useEffect(() => {
     if (!socket.connected && !socket.connecting) socket.connect();
@@ -312,7 +348,18 @@ export function SocketProvider({ children }) {
     });
     socket.on("error", (data) => dispatch({ type: "ERROR", payload: data }));
     socket.on("connect", () => dispatch({ type: "CONNECTED" }));
-    socket.on("disconnect", () => dispatch({ type: "DISCONNECTED" }));
+    socket.on("disconnect", (reason) => {
+      // We closed it ourselves (unmount/HMR) — not an outage
+      if (reason === "io client disconnect") return;
+      dispatch({ type: "DISCONNECTED" });
+      // The server kicked us: socket.io won't retry on its own
+      if (reason === "io server disconnect") socket.connect();
+    });
+    // Initial connect (or a reconnect attempt) failed — the reducer only toasts once per outage
+    socket.on("connect_error", (err) => {
+      console.warn("[socket] connect_error:", err?.message);
+      dispatch({ type: "DISCONNECTED" });
+    });
 
     // If socket connected before useEffect ran (fast localhost), catch up
     if (socket.connected) {
@@ -325,14 +372,13 @@ export function SocketProvider({ children }) {
     }
 
     // Load overlay settings from server
-    fetch("/api/settings/overlay", { cache: "no-store" })
-      .then((r) => r.json())
+    fetchOverlaySettings()
       .then((data) => {
         if (data && typeof data === "object" && !data.error) {
           dispatch({ type: "UPDATE_OVERLAY_SETTINGS", payload: data });
         }
       })
-      .catch(() => {});
+      .catch((err) => reportError(dispatch, err, "errLoadOverlaySettings"));
 
     return () => {
       socket.off();
@@ -367,7 +413,7 @@ export function useTranscript() {
   return useContext(TranscriptContext);
 }
 
-/** UI state: statusKey, statusParams, statusClass, toasts, overlayVisible, overlaySettings, sessionListVersion, listeningSince, pausedElapsed */
+/** UI state: statusKey, statusParams, statusClass, toasts, overlayVisible, overlaySettings, sessionListVersion, reconnectCount, listeningSince, pausedElapsed */
 export function useUI() {
   return useContext(UIContext);
 }

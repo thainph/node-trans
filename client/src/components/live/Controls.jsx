@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, memo } from "react";
-import { useSession } from "../../context/SocketContext";
+import { useSession, useSocketActions, useUI } from "../../context/SocketContext";
 import { useI18n } from "../../i18n/I18nContext";
 import { fetchSettings, saveSettings } from "../../utils/api";
 import { CONTEXT_PRESETS, LANGUAGE_OPTIONS } from "../../utils/constants";
 import { useContextDraft } from "../../hooks/useRecording";
+import { reportError } from "../../utils/errors";
 
 const labelCls = "text-[12px] text-label-2 whitespace-nowrap";
 
@@ -34,6 +35,7 @@ const LangRow = memo(function LangRow({ label, sourceLabel, targetLabel, sourceV
 // source/languages on the server, and nothing here can change while recording.
 export default function Controls() {
   const { isListening, selectedSessionId } = useSession();
+  const { dispatch } = useSocketActions();
   const { t } = useI18n();
   const [{ preset: contextPreset, custom: customContext }, setContextPreset, setCustomContext] = useContextDraft();
 
@@ -43,7 +45,9 @@ export default function Controls() {
   const [sysSourceLang, setSysSourceLang] = useState("auto");
   const [sysTargetLang, setSysTargetLang] = useState("vi");
   const settingsRef = useRef({});
+  const { reconnectCount } = useUI();
 
+  // Load (again after a lost connection — changes are saved to the server, so this is safe)
   useEffect(() => {
     fetchSettings()
       .then((s) => {
@@ -55,12 +59,12 @@ export default function Controls() {
         setSysSourceLang(s.systemWhisperLanguage || "auto");
         setSysTargetLang(s.systemTargetLanguage || defTarget);
       })
-      .catch(() => {});
-  }, []);
+      .catch((err) => reportError(dispatch, err, "errLoadSettings"));
+  }, [dispatch, reconnectCount]);
 
   const quickSave = (patch) => {
     Object.assign(settingsRef.current, patch);
-    saveSettings(patch).catch(() => {});
+    saveSettings(patch).catch((err) => reportError(dispatch, err, "errSaveSettings"));
   };
 
   if (isListening) return null;

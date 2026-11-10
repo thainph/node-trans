@@ -24,6 +24,7 @@ export function initPlatform() {
   const setAccent = (hex) => {
     if (hex) root.style.setProperty("--accent", hex);
   };
+  // Cosmetic only: without the system accent the CSS default stays
   api.getAccentColor?.().then(setAccent).catch(() => {});
   api.onAccentColorChange?.(setAccent);
 }

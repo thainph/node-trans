@@ -65,9 +65,69 @@ if (isDev) {
 // Data directory: use Electron's userData path
 process.env.ELECTRON_USER_DATA = app.getPath("userData");
 
+// Logger (imported after ELECTRON_USER_DATA is set so it writes to <userData>/data/logs)
+const { createLogger } = await import("../src/logger.js");
+const log = createLogger("electron");
+const LOGS_DIR = path.join(app.getPath("userData"), "data", "logs");
+
 let mainWindow;
 let overlayWindow;
 let appPort;
+
+// ---------- Error reporting: nothing in the main process may crash the app silently ----------
+
+let lastError = { message: "", at: 0 };
+// Errors raised while the window is still loading; delivered once the UI can show them
+const pendingUiErrors = [];
+
+function flushUiErrors() {
+  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+  if (!win) return;
+  // Give React a moment to mount and subscribe to app:error
+  setTimeout(() => {
+    while (pendingUiErrors.length && !win.isDestroyed()) win.webContents.send("app:error", pendingUiErrors.shift());
+  }, 800);
+}
+
+// Log the error and show it to the user: as a toast in the window when it's up,
+// otherwise as a native error box. Identical errors within 3s are shown once.
+function reportMainError(label, err) {
+  const message = err?.message || String(err);
+  log.error(label, err instanceof Error ? { message, code: err.code, stack: err.stack } : { message });
+  console.error(`[main] ${label}:`, err);
+
+  const now = Date.now();
+  if (message === lastError.message && now - lastError.at < 3000) return;
+  lastError = { message, at: now };
+
+  const payload = { message: `${label}: ${message}`, detail: err?.code ? `code ${err.code}` : undefined };
+  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+  if (win && !win.webContents.isLoading()) {
+    win.webContents.send("app:error", payload);
+  } else if (win) {
+    pendingUiErrors.push(payload);
+  } else if (app.isReady()) {
+    dialog.showErrorBox(label, `${message}\n\nLogs: ${LOGS_DIR}`);
+  }
+}
+
+// Replaces Electron's default "Uncaught Exception" dialog: report and keep running
+process.on("uncaughtException", (err) => reportMainError("Unexpected error", err));
+process.on("unhandledRejection", (reason) => reportMainError("Unhandled error", reason));
+
+// Only one instance: a second launch would fight over the server port and the database.
+// It just brings the existing window to the front instead.
+const gotSingleInstanceLock = isDev || app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+}
 
 function createOverlayWindow() {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
@@ -118,6 +178,7 @@ function createOverlayWindow() {
   // skipTransformProcessType: by default Electron turns the app into a UIElement app here,
   // which removes it from the Dock and Cmd+Tab (and it often never switches back).
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+  watchWindowHealth(overlayWindow, "overlay");
   if (process.platform === "darwin" && !app.dock.isVisible()) app.dock.show();
 
   if (isDev) {
@@ -282,22 +343,27 @@ async function checkForUpdatesMac() {
 }
 
 app.whenReady().then(async () => {
+  if (!gotSingleInstanceLock) return;
+
   // Request microphone permission on macOS (triggers system dialog on first run)
   if (process.platform === "darwin") {
-    const micStatus = systemPreferences.getMediaAccessStatus("microphone");
-    if (micStatus !== "granted") {
-      await systemPreferences.askForMediaAccess("microphone");
+    try {
+      const micStatus = systemPreferences.getMediaAccessStatus("microphone");
+      if (micStatus !== "granted") {
+        await systemPreferences.askForMediaAccess("microphone");
+      }
+    } catch (err) {
+      log.warn("Microphone permission request failed", { message: err.message });
     }
   }
 
   setupDownloads();
+  setupNativeChrome();
 
-  // Start the Express server
-  const { startServer } = await import("../src/server.js");
-  const port = await startServer();
+  const port = await startServerOrExplain();
+  if (port == null) return; // user chose Quit
   appPort = port;
 
-  setupNativeChrome();
   createMainWindow();
   if (isDev) mainWindow.webContents.openDevTools({ mode: "detach" });
 
@@ -307,6 +373,105 @@ app.whenReady().then(async () => {
     // The overlay may still be open, so check the main window itself
     if (!mainWindow || mainWindow.isDestroyed()) createMainWindow();
   });
+}).catch((err) => reportMainError("Node Trans failed to start", err));
+
+// Start the local server. On failure, say exactly why and let the user retry, open the logs or quit.
+async function startServerOrExplain() {
+  for (;;) {
+    try {
+      const { startServer } = await import("../src/server.js");
+      // Packaged app: a busy port falls back to a free one. In dev the Vite proxy expects 3333,
+      // so fail loudly instead.
+      return await startServer({ allowFallbackPort: !isDev });
+    } catch (err) {
+      log.error("Server failed to start", { message: err.message, code: err.code, stack: err.stack });
+      const { response } = await dialog.showMessageBox({
+        type: "error",
+        title: "Node Trans",
+        message: "Node Trans could not start",
+        detail: `${err.message}\n\nLogs: ${LOGS_DIR}`,
+        buttons: ["Try Again", "Open Logs Folder", "Quit"],
+        defaultId: 0,
+        cancelId: 2,
+      });
+      if (response === 1) shell.openPath(LOGS_DIR);
+      if (response === 2) {
+        app.quit();
+        return null;
+      }
+    }
+  }
+}
+
+// Window-level failures (renderer crash, page load failure, hang) — explain and offer a way out
+function watchWindowHealth(win, name) {
+  const wc = win.webContents;
+
+  wc.on("render-process-gone", async (_e, details) => {
+    if (details.reason === "clean-exit" || win.isDestroyed()) return;
+    log.error(`${name} renderer gone`, details);
+    if (name === "overlay") {
+      reportMainError("The subtitle overlay stopped unexpectedly", new Error(`reason: ${details.reason}, exit code ${details.exitCode}`));
+      win.destroy();
+      return;
+    }
+    const { response } = await dialog.showMessageBox({
+      type: "error",
+      title: "Node Trans",
+      message: "The window stopped unexpectedly",
+      detail: `Reason: ${details.reason} (exit code ${details.exitCode}).\nYour sessions are saved.\n\nLogs: ${LOGS_DIR}`,
+      buttons: ["Reload", "Quit"],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0 && !win.isDestroyed()) wc.reload();
+    else app.quit();
+  });
+
+  wc.on("did-fail-load", async (_e, code, description, url, isMainFrame) => {
+    // -3 = ERR_ABORTED (navigation replaced by another one) — not a real failure
+    if (!isMainFrame || code === -3 || win.isDestroyed()) return;
+    log.error(`${name} failed to load`, { code, description, url });
+    if (name === "overlay") {
+      reportMainError("The subtitle overlay could not load", new Error(`${description} (${url})`));
+      return;
+    }
+    const hint = isDev ? "\nIs the Vite dev server running (npm run dev:client)?" : "";
+    // No parent window: the main window is still hidden until its first successful paint
+    const { response } = await dialog.showMessageBox({
+      type: "error",
+      title: "Node Trans",
+      message: "Couldn't load the interface",
+      detail: `${description} (error ${code})\n${url}${hint}`,
+      buttons: ["Try Again", "Quit"],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0 && !win.isDestroyed()) wc.reload();
+    else if (response === 1) app.quit();
+  });
+
+  win.on("unresponsive", async () => {
+    if (name === "overlay" || win.isDestroyed()) return;
+    log.warn(`${name} unresponsive`);
+    const { response } = await dialog.showMessageBox(win, {
+      type: "warning",
+      title: "Node Trans",
+      message: "Node Trans is not responding",
+      detail: "You can wait for it to recover or reload the window. Your sessions are saved.",
+      buttons: ["Wait", "Reload"],
+      defaultId: 0,
+      cancelId: 0,
+    });
+    if (response === 1 && !win.isDestroyed()) wc.reload();
+  });
+}
+
+// GPU / utility process crashes are recoverable — report, don't die
+app.on("child-process-gone", (_e, details) => {
+  if (details.reason === "clean-exit" || details.reason === "killed") return;
+  log.error("Child process gone", details);
+  reportMainError(`${details.type} process stopped`, new Error(`reason: ${details.reason}, exit code ${details.exitCode}`));
 });
 
 // Platform-native window chrome: inset traffic lights + sidebar vibrancy on macOS,
@@ -342,6 +507,8 @@ function createMainWindow() {
     },
   });
   mainWindow.once("ready-to-show", () => mainWindow.show());
+  watchWindowHealth(mainWindow, "main");
+  mainWindow.webContents.on("did-finish-load", flushUiErrors);
 
   const sendFullscreen = (full) => () => mainWindow?.webContents.send("window:fullscreen", full);
   mainWindow.on("enter-full-screen", sendFullscreen(true));
@@ -492,11 +659,21 @@ app.on("window-all-closed", () => {
   app.quit();
 });
 
-app.on("before-quit", async () => {
-  try {
-    const { stopServer } = await import("../src/server.js");
-    await stopServer();
-  } catch {
-    // Server already stopped
-  }
+// Stop the server (ends active sessions in the DB) before quitting; give it 3s at most
+let serverStopped = false;
+app.on("before-quit", (e) => {
+  // Nothing to stop when the server never started (second instance, startup failure)
+  if (serverStopped || !appPort) return;
+  e.preventDefault();
+  serverStopped = true;
+  const quit = () => app.quit();
+  setTimeout(quit, 3000);
+  import("../src/server.js")
+    .then(({ stopServer }) => stopServer())
+    .catch((err) => log.error("Stopping server on quit failed", { message: err.message }))
+    .finally(quit);
 });
+
+// Ctrl+C / kill while running from a terminal: quit cleanly through before-quit
+process.on("SIGINT", () => app.quit());
+process.on("SIGTERM", () => app.quit());

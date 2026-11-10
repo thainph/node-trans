@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import { useSocketActions, useSession, useUI } from "../context/SocketContext";
 import { fetchSettings } from "../utils/api";
 import { CONTEXT_PRESETS } from "../utils/constants";
+import { reportError } from "../utils/errors";
 
 /*
  * Recording controls shared by the toolbar (start/stop/pause) and the session setup bar
@@ -46,18 +47,22 @@ export function formatDuration(ms) {
 export function useRecording() {
   const { socket, dispatch } = useSocketActions();
   const { isListening, isPaused, pendingAction, selectedSessionId, selectedSessionData } = useSession();
-  const { listeningSince, pausedElapsed } = useUI();
+  const { listeningSince, pausedElapsed, reconnectCount } = useUI();
   const [elapsed, setElapsed] = useState(0);
+  const defaultsLoaded = useRef(false);
 
-  // Default context from settings
+  // Default context from settings — retried after a lost connection if the first load failed
+  // (never re-applied once loaded, so it can't overwrite the user's current choice)
   useEffect(() => {
+    if (defaultsLoaded.current) return;
     fetchSettings()
       .then((s) => {
+        defaultsLoaded.current = true;
         defaults = { preset: s.defaultContext || "none", custom: s.defaultCustomContext || "" };
         if (!selectedSessionId) setDraft(defaults);
       })
-      .catch(() => {});
-  }, []);
+      .catch((err) => reportError(dispatch, err, "errLoadSettings"));
+  }, [reconnectCount]);
 
   // Follow the selected session's context (or fall back to the default)
   useEffect(() => {

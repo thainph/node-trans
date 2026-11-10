@@ -14,4 +14,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onFullscreenChange: (callback) => ipcRenderer.on("window:fullscreen", (_e, full) => callback(full)),
   onMenuAction: (callback) => ipcRenderer.on("menu:action", (_e, id) => callback(id)),
   showContextMenu: (items) => ipcRenderer.invoke("context-menu:show", items),
+  // Main-process errors to show in the UI: { message, detail? }
+  onAppError: (callback) => ipcRenderer.on("app:error", (_e, payload) => callback(payload)),
 });

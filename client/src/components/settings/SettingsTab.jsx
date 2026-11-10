@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Settings, Captions, Languages, Mic, PictureInPicture2, SlidersHorizontal, CheckCircle2, AlertCircle, XCircle, Loader2 } from "lucide-react";
 import { useSocketActions } from "../../context/SocketContext";
-import { fetchSettings, fetchDevices, saveSettings } from "../../utils/api";
+import { fetchSettings, fetchDevices, saveSettings, fetchLocalStatus, removeWhisperModel } from "../../utils/api";
+import { reportError } from "../../utils/errors";
 import { LANGUAGE_OPTIONS, CONTEXT_PRESETS, WHISPER_MODEL_OPTIONS, OLLAMA_MODEL_OPTIONS } from "../../utils/constants";
 import { useI18n } from "../../i18n/I18nContext";
 import { useTheme } from "../../hooks/useTheme";
@@ -153,12 +154,12 @@ export default function SettingsModal({ onClose }) {
       setHfToken(settings.hfToken || "");
       setDefaultContext(settings.defaultContext || "none");
       setDefaultCustomContext(settings.defaultCustomContext || "");
-    }).catch(() => {});
+    }).catch((err) => reportError(dispatch, err, "errLoadSettings"));
     fetchDevices().then((devData) => {
       setDevices(devData.input || []);
       setFfmpegAvailable(devData.ffmpegAvailable !== false);
       setAudiocapAvailable(!!devData.audiocapAvailable);
-    }).catch(() => {});
+    }).catch((err) => reportError(dispatch, err, "errLoadDevices"));
   }, []);
 
   // Fetch engine status lazily when a pane that shows it is opened with local-whisper
@@ -182,34 +183,30 @@ export default function SettingsModal({ onClose }) {
 
   const fetchWhisperStatus = (model = whisperModel) => {
     setCheckingWhisper(true);
-    fetch(`/api/local/status/whisper?model=${encodeURIComponent(model)}`)
-      .then((r) => r.json())
+    fetchLocalStatus("whisper", model)
       .then((data) => { setWhisperStatus(data); setCheckingWhisper(false); })
-      .catch(() => setCheckingWhisper(false));
+      .catch((err) => { setCheckingWhisper(false); reportError(dispatch, err, "errEngineStatus"); });
   };
 
   const fetchOllamaStatus = (model = ollamaModel) => {
     setCheckingOllama(true);
-    fetch(`/api/local/status/ollama?model=${encodeURIComponent(model)}`)
-      .then((r) => r.json())
+    fetchLocalStatus("ollama", model)
       .then((data) => { setOllamaStatus(data); setCheckingOllama(false); })
-      .catch(() => setCheckingOllama(false));
+      .catch((err) => { setCheckingOllama(false); reportError(dispatch, err, "errEngineStatus"); });
   };
 
   const fetchLibreStatus = () => {
     setCheckingLibre(true);
-    fetch("/api/local/status/libretranslate")
-      .then((r) => r.json())
+    fetchLocalStatus("libretranslate")
       .then((data) => { setLibreStatus(data); setCheckingLibre(false); })
-      .catch(() => setCheckingLibre(false));
+      .catch((err) => { setCheckingLibre(false); reportError(dispatch, err, "errEngineStatus"); });
   };
 
   const fetchDiarizeStatus = () => {
     setCheckingDiarize(true);
-    fetch("/api/local/status/diarize")
-      .then((r) => r.json())
+    fetchLocalStatus("diarize")
       .then((data) => { setDiarizeStatus(data); setCheckingDiarize(false); })
-      .catch(() => setCheckingDiarize(false));
+      .catch((err) => { setCheckingDiarize(false); reportError(dispatch, err, "errEngineStatus"); });
   };
 
   const startWhisperSetup = () => {
@@ -311,8 +308,8 @@ export default function SettingsModal({ onClose }) {
       });
       dispatch({ type: "TOAST", payload: { message: t("saved"), type: "success" } });
       return true;
-    } catch {
-      dispatch({ type: "TOAST", payload: { message: t("saveFailed"), type: "error" } });
+    } catch (err) {
+      reportError(dispatch, err, "errSaveSettings");
       return false;
     }
   };
@@ -810,9 +807,9 @@ export default function SettingsModal({ onClose }) {
       confirmColor="red"
       onConfirm={() => {
         setConfirmRemoveModel(false);
-        fetch(`/api/local/whisper-model?model=${encodeURIComponent(whisperModel)}`, { method: "DELETE" })
-          .then((r) => r.json())
-          .then(() => fetchWhisperStatus());
+        removeWhisperModel(whisperModel)
+          .then(() => fetchWhisperStatus())
+          .catch((err) => reportError(dispatch, err, "errRemoveModel"));
       }}
       onCancel={() => setConfirmRemoveModel(false)}
     />

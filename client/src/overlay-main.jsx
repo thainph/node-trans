@@ -4,7 +4,56 @@ import { X } from "lucide-react";
 
 const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI Variable", "Segoe UI", Roboto, sans-serif';
 // The overlay window has no i18n context; follow the system language for its one label
-const CLOSE_LABEL = navigator.language?.toLowerCase().startsWith("vi") ? "\u0110\u00F3ng" : "Close";
+const IS_VI = navigator.language?.toLowerCase().startsWith("vi");
+const CLOSE_LABEL = IS_VI ? "\u0110\u00F3ng" : "Close";
+const ERROR_LABEL = IS_VI ? "L\u1ED7i ph\u1EE5 \u0111\u1EC1" : "Subtitle error";
+const RETRY_LABEL = IS_VI ? "Th\u1EED l\u1EA1i" : "Try Again";
+
+// Minimal fallback for the HUD: plain inline styles only, so it can't fail like the HUD did.
+// Retry reloads (overlayAPI listeners can't be unsubscribed, so remounting would duplicate them)
+class OverlayErrorBoundary extends React.Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) {
+    return { error: error ?? new Error("Unknown error") };
+  }
+  componentDidCatch(error, info) {
+    console.error("[overlay]", error, info?.componentStack);
+  }
+  render() {
+    const { error } = this.state;
+    if (!error) return this.props.children;
+    let message = "Unknown error";
+    try { message = String(error.message || error); } catch { /* keep the generic text */ }
+    return (
+      <div
+        role="alert"
+        style={{
+          width: "100vw", height: "100vh", boxSizing: "border-box", padding: "10px 14px",
+          display: "flex", flexDirection: "column", justifyContent: "center", gap: 6,
+          background: "rgba(20, 20, 20, 0.85)", color: "rgba(255,255,255,0.95)",
+          borderRadius: 12, font: `12px ${SYSTEM_FONT}`, overflow: "hidden",
+        }}
+      >
+        <div style={{ fontWeight: 600, color: "#ff9f0a" }}>{ERROR_LABEL}</div>
+        <div style={{ color: "rgba(255,255,255,0.7)", fontFamily: "ui-monospace, Menlo, monospace", fontSize: 11, wordBreak: "break-word", userSelect: "text" }}>
+          {message}
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[[RETRY_LABEL, () => location.reload()], [CLOSE_LABEL, () => window.overlayAPI?.close()]].map(([label, onClick]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={onClick}
+              style={{ font: "inherit", fontSize: 11, color: "inherit", background: "rgba(255,255,255,0.16)", border: "none", borderRadius: 999, padding: "3px 10px" }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+}
 
 const DEFAULTS = {
   opacity: 0.8,
@@ -232,6 +281,8 @@ function OverlayApp() {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <OverlayApp />
+    <OverlayErrorBoundary>
+      <OverlayApp />
+    </OverlayErrorBoundary>
   </React.StrictMode>
 );

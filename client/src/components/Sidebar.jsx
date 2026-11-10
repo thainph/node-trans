@@ -5,6 +5,7 @@ import { useI18n } from "../i18n/I18nContext";
 import { useCommand } from "../hooks/useCommand";
 import { showContextMenu } from "../utils/contextMenu";
 import { fetchSessions, fetchSession, deleteSession, renameSession } from "../utils/api";
+import { reportError, errorMessage } from "../utils/errors";
 import { ConfirmDialog, PromptDialog } from "./Modal";
 import ExportDialog from "./live/ExportDialog";
 
@@ -106,7 +107,11 @@ export default function Sidebar({ open = true }) {
     let cancelled = false;
     fetchSessions()
       .then((data) => { if (!cancelled) setSessions(data); })
-      .catch(() => { if (!cancelled) setSessions([]); });
+      .catch((err) => {
+        if (cancelled) return;
+        setSessions([]);
+        reportError(dispatch, err, "errLoadSessions");
+      });
     return () => { cancelled = true; };
   }, [isListening, sessionListVersion]);
 
@@ -160,8 +165,8 @@ export default function Sidebar({ open = true }) {
         type: "SELECT_SESSION",
         payload: { sessionId, sessionData: data, utterances: data.utterances || [] },
       });
-    } catch {
-      // ignore
+    } catch (err) {
+      reportError(dispatch, err, "errOpenSession");
     }
   };
 
@@ -247,7 +252,8 @@ export default function Sidebar({ open = true }) {
     if (!target) return;
     try {
       await renameSession(target.id, newTitle);
-    } catch {
+    } catch (err) {
+      reportError(dispatch, err, "errRenameSession");
       return;
     }
     if (target.id === selectedSessionId) {
@@ -268,16 +274,21 @@ export default function Sidebar({ open = true }) {
 
     if (idsToDelete.length === 0) return;
 
-    // Delete from server
-    try {
-      await Promise.all(idsToDelete.map((id) => deleteSession(id)));
-    } catch {
-      // ignore
+    // Delete from server; keep going for the rest when one fails, then report the failures
+    const results = await Promise.allSettled(idsToDelete.map((id) => deleteSession(id)));
+    const deleted = idsToDelete.filter((_, i) => results[i].status === "fulfilled");
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      const err = failed[0].reason;
+      const reason = failed.length > 1
+        ? Object.assign(new Error(`${errorMessage(err)} (×${failed.length})`), { code: err?.code, detail: err?.detail })
+        : err;
+      reportError(dispatch, reason, "errDeleteSession");
     }
 
     // Only clear the transcript when the session on screen was deleted — never while recording,
     // since DESELECT_SESSION also wipes the live utterances
-    if (!isListening && selectedSessionId && idsToDelete.includes(selectedSessionId)) {
+    if (!isListening && selectedSessionId && deleted.includes(selectedSessionId)) {
       dispatch({ type: "CLEAR_TRANSCRIPT" });
       dispatch({ type: "DESELECT_SESSION" });
     }
