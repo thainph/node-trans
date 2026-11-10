@@ -26,8 +26,10 @@ const forceLinux = args.includes("--linux");
 
 const targetPlatform = forceWin ? "win" : forceMac ? "mac" : forceLinux ? "linux" : (process.platform === "win32" ? "win" : process.platform === "linux" ? "linux" : "mac");
 
-if (targetPlatform === "mac" || targetPlatform === "linux") {
-  // macOS / Linux: copy from ffmpeg-static (requires host platform match or cross-platform ffmpeg-static)
+const hostPlatform = process.platform === "win32" ? "win" : process.platform === "linux" ? "linux" : "mac";
+
+if (targetPlatform === hostPlatform) {
+  // Native build: copy from ffmpeg-static (it installs the binary for the host platform)
   const ffmpegStaticPath = require("ffmpeg-static");
   if (!ffmpegStaticPath || !fs.existsSync(ffmpegStaticPath)) {
     console.error("ffmpeg-static binary not found. Run: npm install ffmpeg-static");
@@ -35,7 +37,7 @@ if (targetPlatform === "mac" || targetPlatform === "linux") {
   }
 
   const destDir = path.join(ROOT, "ffmpeg-bin", targetPlatform);
-  const destPath = path.join(destDir, "ffmpeg");
+  const destPath = path.join(destDir, targetPlatform === "win" ? "ffmpeg.exe" : "ffmpeg");
 
   if (fs.existsSync(destPath)) {
     console.log(`FFmpeg binary already exists at ${destPath}, skipping.`);
@@ -46,8 +48,8 @@ if (targetPlatform === "mac" || targetPlatform === "linux") {
   fs.copyFileSync(ffmpegStaticPath, destPath);
   fs.chmodSync(destPath, 0o755);
   console.log(`Copied FFmpeg binary to ${destPath}`);
-} else {
-  // Windows: download ffmpeg from GitHub (BtbN release)
+} else if (targetPlatform === "win") {
+  // Cross-building Windows from macOS/Linux: download ffmpeg from GitHub (BtbN release)
   const destDir = path.join(ROOT, "ffmpeg-bin", "win");
   const destPath = path.join(destDir, "ffmpeg.exe");
 
@@ -58,7 +60,8 @@ if (targetPlatform === "mac" || targetPlatform === "linux") {
 
   fs.mkdirSync(destDir, { recursive: true });
 
-  const ZIP_NAME = "ffmpeg-n7.1-latest-win64-gpl-7.1.zip";
+  // BtbN only keeps recent versioned assets (e.g. n7.1 was removed); master-latest has a stable name
+  const ZIP_NAME = "ffmpeg-master-latest-win64-gpl.zip";
   const DOWNLOAD_URL = `https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/${ZIP_NAME}`;
   const zipPath = path.join(ROOT, "ffmpeg-bin", ZIP_NAME);
 
@@ -96,6 +99,9 @@ if (targetPlatform === "mac" || targetPlatform === "linux") {
       console.log("Cleaned up downloaded archive.");
     }
   }
+} else {
+  console.error(`Cross-preparing FFmpeg for ${targetPlatform} from ${hostPlatform} is not supported.`);
+  process.exit(1);
 }
 
 function downloadFile(url, dest) {
