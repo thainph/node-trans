@@ -182,12 +182,21 @@ ipcMain.on("overlay:drag-start", () => {
   }
 });
 
+// setPosition only accepts Int32 values: NaN/Infinity and -0 (e.g. Math.round(-0.4))
+// make it throw "conversion failure", which crashes the main process.
+function toInt32(n) {
+  return Number.isFinite(n) ? Math.round(n) | 0 : null;
+}
+
 ipcMain.on("overlay:drag-move", (_e, dx, dy) => {
-  if (overlayWindow && !overlayWindow.isDestroyed() && overlayDragStart) {
-    overlayWindow.setPosition(
-      Math.round(overlayDragStart.x + dx),
-      Math.round(overlayDragStart.y + dy)
-    );
+  if (!overlayWindow || overlayWindow.isDestroyed() || !overlayDragStart) return;
+  const x = toInt32(overlayDragStart.x + Number(dx));
+  const y = toInt32(overlayDragStart.y + Number(dy));
+  if (x === null || y === null) return;
+  try {
+    overlayWindow.setPosition(x, y);
+  } catch (err) {
+    console.error("Overlay setPosition failed:", err.message);
   }
 });
 
