@@ -214,6 +214,8 @@ export const en = {
   errNoDevice: "No device configured for {source}",
   errAudioCapture: "Audio capture error ({source}): {detail}",
   errSoniox: "Soniox error: {detail}",
+  sttReconnecting: "Soniox connection dropped ({source}) \u2014 reconnecting\u2026",
+  sttReconnected: "Soniox reconnected ({source})",
 
   // Overlay
   overlay: "Overlay",
@@ -531,6 +533,8 @@ export const vi = {
   errNoDevice: "Ch\u01B0a c\u1EA5u h\u00ECnh thi\u1EBFt b\u1ECB cho {source}",
   errAudioCapture: "L\u1ED7i thu \u00E2m ({source}): {detail}",
   errSoniox: "L\u1ED7i Soniox: {detail}",
+  sttReconnecting: "M\u1EA5t k\u1EBFt n\u1ED1i Soniox ({source}) \u2014 \u0111ang k\u1EBFt n\u1ED1i l\u1EA1i\u2026",
+  sttReconnected: "\u0110\u00E3 k\u1EBFt n\u1ED1i l\u1EA1i Soniox ({source})",
 
   // Overlay
   overlay: "Overlay",

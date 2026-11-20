@@ -408,6 +408,15 @@ io.on("connection", (socket) => {
           emitError(socket, { key, params: { detail: err.message } });
         });
 
+        // Soniox reopens dropped streams by itself; tell the user so a gap in the transcript is explained
+        stt.onReconnect?.((phase, detail) => {
+          if (activeSessions.get(socket.id) !== state) return;
+          log.info(`STT ${phase}`, { socketId: socket.id, source, detail });
+          socket.emit("notice", phase === "reconnecting"
+            ? { key: "sttReconnecting", params: { source } }
+            : { key: "sttReconnected", params: { source }, type: "success" });
+        });
+
         await stt.connect();
 
         // Abort if session was stopped or replaced while connecting

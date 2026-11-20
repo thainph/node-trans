@@ -347,6 +347,8 @@ export function SocketProvider({ children }) {
       if (fwdOverlay) fwdOverlay({ type: "partial", payload: data });
     });
     socket.on("error", (data) => dispatch({ type: "ERROR", payload: data }));
+    // Non-fatal server events (e.g. transcription stream reconnecting) — informational toast only
+    socket.on("notice", (data) => dispatch({ type: "TOAST", payload: data }));
     socket.on("connect", () => dispatch({ type: "CONNECTED" }));
     socket.on("disconnect", (reason) => {
       // We closed it ourselves (unmount/HMR) — not an outage
