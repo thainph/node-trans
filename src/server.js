@@ -111,16 +111,15 @@ app.use((err, req, res, next) => {
 
 // Active sessions per socket
 const activeSessions = new Map();
-const SESSION_TTL = 4 * 60 * 60 * 1000; // 4 hours max session
 
-// Periodic cleanup of stale sessions (safety net for dropped connections)
+// Safety net for orphaned sessions: their client is gone but capture/STT still run (and bill).
+// `disconnect` normally stops them right away; this catches anything that slipped past it.
+// Sessions of a connected client are never touched, however long they run: only the user stops those.
 const cleanupInterval = setInterval(() => {
-  const now = Date.now();
   for (const [socketId, state] of activeSessions) {
-    if (state.startedAt && now - state.startedAt > SESSION_TTL) {
-      log.warn("Cleaning up stale session", { socketId, sessionId: state.dbSessionId });
-      stopSession(socketId).catch(() => {});
-    }
+    if (io.sockets.sockets.has(socketId)) continue;
+    log.warn("Cleaning up orphaned session (client gone)", { socketId, sessionId: state.dbSessionId });
+    stopSession(socketId).catch((err) => log.error("Stop error", err));
   }
 }, 60_000);
 
@@ -280,7 +279,6 @@ io.on("connection", (socket) => {
         captures: [],
         sttSessions: [],
         partialTimers: [],
-        startedAt: Date.now(),
       };
 
       const sources = audioSource === "both"
@@ -289,6 +287,13 @@ io.on("connection", (socket) => {
 
       // Register state and ACK the client immediately — STT setup continues below
       activeSessions.set(socket.id, state);
+      // The client left while we were setting up: its `disconnect` ran before the session
+      // existed, so nothing would stop it. Close it (and its DB session) before capture starts.
+      if (socket.disconnected) {
+        log.warn("Client left during session setup, discarding", { socketId: socket.id, sessionId: dbSessionId });
+        await stopSession(socket.id);
+        return;
+      }
       socket.emit("status", { listening: true, sessionId: dbSessionId, audioSource });
 
       const createSTT = await sttFactoryP;
