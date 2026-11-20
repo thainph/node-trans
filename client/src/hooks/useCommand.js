@@ -9,7 +9,7 @@ import { useEffect, useRef } from "react";
  * browser, e.g. Cmd+F find-in-page). Commands are ignored while a sheet (modal) is open.
  *
  * Command ids: settings, new-session, toggle-recording, pause-resume, toggle-overlay,
- * export, rename, delete, find, toggle-sidebar.
+ * export, rename, delete, find, toggle-sidebar, donate.
  */
 const handlers = new Map(); // id -> Set<ref>
 const isMac = /Mac/.test(navigator.platform);

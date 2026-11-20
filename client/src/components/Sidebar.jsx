@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Search } from "lucide-react";
+import { Search, Heart } from "lucide-react";
 import { useSocketActions, useSession, useUI } from "../context/SocketContext";
 import { useI18n } from "../i18n/I18nContext";
 import { useCommand } from "../hooks/useCommand";
@@ -82,7 +82,7 @@ function SidebarRow({ session, locale, showDate, selected, recording, disabled, 
   );
 }
 
-export default function Sidebar({ open = true }) {
+export default function Sidebar({ open = true, onOpenDonate }) {
   const { dispatch } = useSocketActions();
   const { isListening, currentSessionId, selectedSessionId } = useSession();
   const { sessionListVersion } = useUI();
@@ -375,6 +375,16 @@ export default function Sidebar({ open = true }) {
               ))
             )}
           </div>
+
+          {/* Support the developer */}
+          {!showBulkBar && (
+            <div className="shrink-0 px-2 pb-2">
+              <button className="list-row w-full text-left text-label-2 hover:text-label" onClick={onOpenDonate}>
+                <Heart size={14} strokeWidth={0} fill="currentColor" className="text-[#ff2d55] shrink-0" />
+                <span className="text-[13px] truncate">{t("donateSidebar")}</span>
+              </button>
+            </div>
+          )}
 
           {/* Multi-selection bar */}
           {showBulkBar && (

@@ -521,7 +521,7 @@ function createMainWindow() {
 function sendMenuAction(id) {
   const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
   if (!win) return;
-  if (id === "settings") win.show();
+  if (id === "settings" || id === "donate") win.show();
   win.webContents.send("menu:action", id);
 }
 
@@ -534,6 +534,7 @@ function buildAppMenu() {
       label: app.name,
       submenu: [
         { role: "about" },
+        action("Support Node Trans…", "donate"),
         { type: "separator" },
         action("Settings…", "settings", "Cmd+,"),
         { type: "separator" },
@@ -588,6 +589,10 @@ function buildAppMenu() {
       ],
     },
     { role: "windowMenu" },
+    ...(isMac ? [] : [{
+      label: "Help",
+      submenu: [action("Support Node Trans…", "donate")],
+    }]),
   ];
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));

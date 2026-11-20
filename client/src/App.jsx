@@ -13,10 +13,12 @@ import { useGlobalErrors } from "./hooks/useGlobalErrors";
 import { reportError } from "./utils/errors";
 
 const SettingsModal = lazy(() => import("./components/settings/SettingsTab"));
+const DonateDialog = lazy(() => import("./components/DonateDialog"));
 const OverlayWindow = lazy(() => import("./components/live/OverlayWindow"));
 
 function AppContent() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [donateOpen, setDonateOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(() => localStorage.getItem("sidebarOpen") !== "0");
   const { overlayVisible } = useUI();
   const { dispatch } = useSocketActions();
@@ -35,19 +37,21 @@ function AppContent() {
 
   useCommand("settings", () => setSettingsOpen(true));
   useCommand("toggle-sidebar", toggleSidebar);
+  useCommand("donate", () => setDonateOpen(true));
 
   return (
     <>
       {/* Floating glass sidebar on the left; content runs edge to edge with the toolbar
           and bottom bar floating over it */}
       <div className="flex h-screen text-label">
-        <Sidebar open={sidebarOpen} />
+        <Sidebar open={sidebarOpen} onOpenDonate={() => setDonateOpen(true)} />
         <main className="relative flex-1 min-w-0 bg-content overflow-hidden">
           <LiveTab />
           <Toolbar
             sidebarOpen={sidebarOpen}
             onToggleSidebar={toggleSidebar}
             onOpenSettings={() => setSettingsOpen(true)}
+            onOpenDonate={() => setDonateOpen(true)}
           />
         </main>
       </div>
@@ -63,6 +67,13 @@ function AppContent() {
         >
           <Suspense fallback={null}>
             <SettingsModal onClose={closeSettings} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+      {donateOpen && (
+        <ErrorBoundary name="donate" renderFallback={() => null} onError={reportCrash}>
+          <Suspense fallback={null}>
+            <DonateDialog open onClose={() => setDonateOpen(false)} />
           </Suspense>
         </ErrorBoundary>
       )}

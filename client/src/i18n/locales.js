@@ -315,6 +315,21 @@ export const en = {
   errRemoveModel: "Couldn\u2019t remove the model: {reason}",
   errStartupCheck: "Couldn\u2019t check local engine setup: {reason}",
   errExport: "Couldn\u2019t export: {reason}",
+
+  // Donate
+  donateTitle: "Support Node Trans",
+  donateSidebar: "Support the developer",
+  donateMessage: "Node Trans is free and built by one person. If it helps you, a coffee keeps it maintained and improving.",
+  donateQrAlt: "Bank transfer QR code",
+  donateScan: "Scan with any banking app",
+  donateBank: "Bank",
+  donateAccount: "Account no.",
+  donateHolder: "Account holder",
+  donateNote: "Reference",
+  donateCopy: "Copy",
+  donateCopied: "Copied",
+  donateThanks: "Choose any amount in your banking app. Thank you so much!",
+  donateClose: "Close",
 };
 
 export const vi = {
@@ -634,4 +649,19 @@ export const vi = {
   errRemoveModel: "Kh\u00F4ng x\u00F3a \u0111\u01B0\u1EE3c model: {reason}",
   errStartupCheck: "Kh\u00F4ng ki\u1EC3m tra \u0111\u01B0\u1EE3c c\u00E0i \u0111\u1EB7t engine c\u1EE5c b\u1ED9: {reason}",
   errExport: "Kh\u00F4ng xu\u1EA5t \u0111\u01B0\u1EE3c: {reason}",
+
+  // Donate
+  donateTitle: "Ủng hộ Node Trans",
+  donateSidebar: "Ủng hộ tác giả",
+  donateMessage: "Node Trans miễn phí và do một người phát triển. Nếu app giúp ích cho bạn, một ly cà phê sẽ giúp mình duy trì và cải thiện app.",
+  donateQrAlt: "Mã QR chuyển khoản",
+  donateScan: "Quét bằng app ngân hàng bất kỳ",
+  donateBank: "Ngân hàng",
+  donateAccount: "Số tài khoản",
+  donateHolder: "Chủ tài khoản",
+  donateNote: "Nội dung",
+  donateCopy: "Sao chép",
+  donateCopied: "Đã chép",
+  donateThanks: "Số tiền tuỳ bạn chọn trong app ngân hàng. Cảm ơn bạn rất nhiều!",
+  donateClose: "Đóng",
 };

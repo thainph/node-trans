@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PanelLeft, PictureInPicture2, Settings, Circle, Square, Pause, Play, SquarePen, Ellipsis, FilePlus2 } from "lucide-react";
+import { PanelLeft, PictureInPicture2, Settings, Circle, Square, Pause, Play, SquarePen, Ellipsis, FilePlus2, Heart } from "lucide-react";
 import { useI18n } from "../i18n/I18nContext";
 import { useSocketActions, useSession, useTranscript, useUI } from "../context/SocketContext";
 import { useCommand, shortcutLabel } from "../hooks/useCommand";
@@ -23,7 +23,7 @@ function withShortcut(label, id) {
 
 // Unified title bar + toolbar. The whole bar is a window drag region in Electron;
 // buttons opt out via the .drag rule in style.css.
-export default function Toolbar({ sidebarOpen, onToggleSidebar, onOpenSettings }) {
+export default function Toolbar({ sidebarOpen, onToggleSidebar, onOpenSettings, onOpenDonate }) {
   const { t } = useI18n();
   const { dispatch } = useSocketActions();
   const { isListening, isPaused, pendingAction, selectedSessionId, selectedSessionData } = useSession();
@@ -189,6 +189,14 @@ export default function Toolbar({ sidebarOpen, onToggleSidebar, onOpenSettings }
             aria-label={t("overlay")}
           >
             <PictureInPicture2 {...ICON} />
+          </button>
+          <button
+            className="btn-icon text-[#ff2d55]"
+            onClick={onOpenDonate}
+            title={t("donateTitle")}
+            aria-label={t("donateTitle")}
+          >
+            <Heart {...ICON} />
           </button>
           <button
             className="btn-icon"
