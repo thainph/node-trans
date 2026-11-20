@@ -29,6 +29,11 @@ const DEFAULTS = {
   ollamaModel: "llama3.2",
   defaultContext: "none",
   defaultCustomContext: "",
+  // Per-recording duration limit (recording time, pauses excluded)
+  sessionLimitEnabled: false,
+  sessionLimitMinutes: 60,
+  sessionLimitAction: "warn", // "warn" | "stop"
+  sessionLimitWarnMinutes: 5,
   overlay: {
     opacity: 0.8,
     scale: 1,

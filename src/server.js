@@ -114,7 +114,8 @@ const activeSessions = new Map();
 
 // Safety net for orphaned sessions: their client is gone but capture/STT still run (and bill).
 // `disconnect` normally stops them right away; this catches anything that slipped past it.
-// Sessions of a connected client are never touched, however long they run: only the user stops those.
+// Sessions of a connected client are never touched, however long they run: only the user
+// (or their own session limit setting) stops those.
 const cleanupInterval = setInterval(() => {
   for (const [socketId, state] of activeSessions) {
     if (io.sockets.sockets.has(socketId)) continue;
@@ -122,6 +123,41 @@ const cleanupInterval = setInterval(() => {
     stopSession(socketId).catch((err) => log.error("Stop error", err));
   }
 }, 60_000);
+
+// Session duration limit (Settings → General). Counts recording time like the toolbar timer:
+// pauses are excluded and every start begins a new count, even when resuming a session.
+const LIMIT_EXTEND_MS = 15 * 60 * 1000;
+
+function sessionLimitFromSettings(settings) {
+  if (!settings.sessionLimitEnabled) return null;
+  const minutes = Math.min(600, Math.max(1, Number(settings.sessionLimitMinutes) || 60));
+  const warnMinutes = Math.min(minutes, Math.max(0, Number(settings.sessionLimitWarnMinutes) || 0));
+  return {
+    limitMs: minutes * 60_000,
+    warnMs: warnMinutes * 60_000,
+    action: settings.sessionLimitAction === "stop" ? "stop" : "warn",
+  };
+}
+
+function recordedMs(state) {
+  return state.activeMs + (state.runningSince ? Date.now() - state.runningSince : 0);
+}
+
+// The client shows warnings from its own timer; the server only enforces auto-stop, so it
+// happens on time even when the window is hidden and its timers are throttled.
+function scheduleLimitStop(socket, state) {
+  clearTimeout(state.limitTimer);
+  state.limitTimer = null;
+  if (state.limit?.action !== "stop" || !state.runningSince) return;
+  const remaining = Math.max(0, state.limit.limitMs - recordedMs(state));
+  state.limitTimer = setTimeout(() => {
+    if (activeSessions.get(socket.id) !== state) return;
+    log.info("Session limit reached, stopping", { socketId: socket.id, sessionId: state.dbSessionId, limitMs: state.limit.limitMs });
+    socket.emit("status", { listening: false });
+    socket.emit("session-limit-reached", { limitMs: state.limit.limitMs });
+    stopSession(socket.id).catch((err) => log.error("Stop error", err));
+  }, remaining);
+}
 
 // Log and emit an error event to the client in one call
 function emitError(socket, payload) {
@@ -279,6 +315,10 @@ io.on("connection", (socket) => {
         captures: [],
         sttSessions: [],
         partialTimers: [],
+        limit: sessionLimitFromSettings(settings),
+        activeMs: 0,
+        runningSince: Date.now(),
+        limitTimer: null,
       };
 
       const sources = audioSource === "both"
@@ -294,7 +334,8 @@ io.on("connection", (socket) => {
         await stopSession(socket.id);
         return;
       }
-      socket.emit("status", { listening: true, sessionId: dbSessionId, audioSource });
+      socket.emit("status", { listening: true, sessionId: dbSessionId, audioSource, limit: state.limit });
+      scheduleLimitStop(socket, state);
 
       const createSTT = await sttFactoryP;
 
@@ -463,6 +504,9 @@ io.on("connection", (socket) => {
       capture.pause();
     }
     state.paused = true;
+    state.activeMs = recordedMs(state);
+    state.runningSince = null;
+    scheduleLimitStop(socket, state);
     socket.emit("status", { listening: true, paused: true, sessionId: state.dbSessionId, audioSource: state.audioSource });
     log.info("Paused", { socketId: socket.id });
   });
@@ -475,8 +519,20 @@ io.on("connection", (socket) => {
       capture.resume();
     }
     state.paused = false;
+    state.runningSince = Date.now();
+    scheduleLimitStop(socket, state);
     socket.emit("status", { listening: true, paused: false, sessionId: state.dbSessionId, audioSource: state.audioSource });
     log.info("Resumed", { socketId: socket.id });
+  });
+
+  // "Extend 15 min" in the limit banner: applies to this recording only, settings stay unchanged
+  on("extend-session-limit", () => {
+    const state = activeSessions.get(socket.id);
+    if (!state?.limit) return;
+    state.limit = { ...state.limit, limitMs: state.limit.limitMs + LIMIT_EXTEND_MS };
+    scheduleLimitStop(socket, state);
+    socket.emit("session-limit", state.limit);
+    log.info("Session limit extended", { socketId: socket.id, limitMs: state.limit.limitMs });
   });
 
   on("stop-listening", () => {
@@ -501,6 +557,7 @@ async function stopSession(socketId) {
 
   // Clear batched partial timers
   for (const clearTimer of state.partialTimers || []) clearTimer();
+  clearTimeout(state.limitTimer);
 
   for (const capture of state.captures) {
     capture.stop();

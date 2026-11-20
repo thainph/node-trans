@@ -8,6 +8,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import { useTheme } from "../../hooks/useTheme";
 import OverlaySettings from "./OverlaySettings";
 import { ModalBase, ConfirmDialog } from "../Modal";
+import { requestNotificationPermission } from "../../utils/notify";
 
 const hintCls = "text-[11px] text-label-2 leading-snug";
 const linkCls = "text-accent hover:underline";
@@ -79,6 +80,17 @@ function Group({ title, children }) {
 // Panes whose local-engine rows need the whisper / ollama / diarize status
 const LOCAL_STATUS_PANES = ["transcription", "translation", "advanced"];
 
+const LIMIT_PRESETS = [30, 45, 60, 90, 120, 180];
+const LIMIT_WARN_OPTIONS = [1, 2, 5, 10];
+
+// "45 min" / "1 hour" / "1 h 30 min" in the UI language
+function durationLabel(t, minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return t("durMinutes", { m });
+  return m ? t("durHoursMinutes", { h, m }) : t("durHours", { h });
+}
+
 const UI_LANG_OPTIONS = [
   { value: "en", label: "English" },
   { value: "vi", label: "Tiếng Việt" },
@@ -117,6 +129,11 @@ export default function SettingsModal({ onClose }) {
   const [checkingDiarize, setCheckingDiarize] = useState(false);
   const [defaultContext, setDefaultContext] = useState("none");
   const [defaultCustomContext, setDefaultCustomContext] = useState("");
+  const [limitEnabled, setLimitEnabled] = useState(false);
+  const [limitMinutes, setLimitMinutes] = useState(60);
+  const [limitCustom, setLimitCustom] = useState(false);
+  const [limitAction, setLimitAction] = useState("warn");
+  const [limitWarnMinutes, setLimitWarnMinutes] = useState(5);
   const [setupLog, setSetupLog] = useState([]);
   const [setupRunning, setSetupRunning] = useState(false);
   const [setupDone, setSetupDone] = useState(false);
@@ -154,6 +171,12 @@ export default function SettingsModal({ onClose }) {
       setHfToken(settings.hfToken || "");
       setDefaultContext(settings.defaultContext || "none");
       setDefaultCustomContext(settings.defaultCustomContext || "");
+      const minutes = Number(settings.sessionLimitMinutes) || 60;
+      setLimitEnabled(!!settings.sessionLimitEnabled);
+      setLimitMinutes(minutes);
+      setLimitCustom(!LIMIT_PRESETS.includes(minutes));
+      setLimitAction(settings.sessionLimitAction === "stop" ? "stop" : "warn");
+      setLimitWarnMinutes(Number(settings.sessionLimitWarnMinutes) || 5);
     }).catch((err) => reportError(dispatch, err, "errLoadSettings"));
     fetchDevices().then((devData) => {
       setDevices(devData.input || []);
@@ -305,6 +328,10 @@ export default function SettingsModal({ onClose }) {
         hfToken: hfToken || null,
         defaultContext,
         defaultCustomContext: defaultCustomContext || "",
+        sessionLimitEnabled: limitEnabled,
+        sessionLimitMinutes: Math.min(600, Math.max(5, Math.round(Number(limitMinutes) || 60))),
+        sessionLimitAction: limitAction,
+        sessionLimitWarnMinutes: limitWarnMinutes,
       });
       dispatch({ type: "TOAST", payload: { message: t("saved"), type: "success" } });
       return true;
@@ -409,6 +436,82 @@ export default function SettingsModal({ onClose }) {
                   ]}
                 />
               </Row>
+            </Group>
+          )}
+
+          {activeTab === "general" && (
+            <Group title={t("sessionLimitSection")}>
+              <Row label={t("sessionLimitEnable")} hint={t("sessionLimitEnableHint")}>
+                <input
+                  type="checkbox"
+                  className="switch"
+                  checked={limitEnabled}
+                  onChange={() => {
+                    if (!limitEnabled) requestNotificationPermission();
+                    setLimitEnabled(!limitEnabled);
+                  }}
+                />
+              </Row>
+              {limitEnabled && (
+                <>
+                  <Row label={t("sessionLimitMax")}>
+                    <select
+                      className="select w-40"
+                      value={limitCustom ? "custom" : String(limitMinutes)}
+                      onChange={(e) => {
+                        const custom = e.target.value === "custom";
+                        setLimitCustom(custom);
+                        if (!custom) setLimitMinutes(Number(e.target.value));
+                      }}
+                    >
+                      {LIMIT_PRESETS.map((m) => (
+                        <option key={m} value={String(m)}>{durationLabel(t, m)}</option>
+                      ))}
+                      <option value="custom">{t("sessionLimitCustom")}</option>
+                    </select>
+                    {limitCustom && (
+                      <>
+                        <input
+                          type="number"
+                          className="field w-20 text-right font-mono tabular-nums"
+                          min={5}
+                          max={600}
+                          step={5}
+                          value={limitMinutes}
+                          onChange={(e) => setLimitMinutes(e.target.value)}
+                          aria-label={t("sessionLimitMax")}
+                        />
+                        <span className={hintCls}>{t("minutesShort")}</span>
+                      </>
+                    )}
+                  </Row>
+                  <Row label={t("sessionLimitAction")}>
+                    <Segmented
+                      value={limitAction}
+                      onChange={setLimitAction}
+                      options={[
+                        { value: "warn", label: t("sessionLimitWarnOnly") },
+                        { value: "stop", label: t("sessionLimitAutoStop") },
+                      ]}
+                    />
+                  </Row>
+                  <Row label={t("sessionLimitWarnBefore")}>
+                    <select className="select w-40" value={String(limitWarnMinutes)} onChange={(e) => setLimitWarnMinutes(Number(e.target.value))}>
+                      {LIMIT_WARN_OPTIONS.map((m) => (
+                        <option key={m} value={String(m)}>{durationLabel(t, m)}</option>
+                      ))}
+                    </select>
+                  </Row>
+                  <WideRow>
+                    <p className={hintCls}>
+                      {t(limitAction === "stop" ? "sessionLimitNoteStop" : "sessionLimitNoteWarn", {
+                        limit: durationLabel(t, Math.max(5, Math.round(Number(limitMinutes) || 60))),
+                        warn: durationLabel(t, limitWarnMinutes),
+                      })}
+                    </p>
+                  </WideRow>
+                </>
+              )}
             </Group>
           )}
 

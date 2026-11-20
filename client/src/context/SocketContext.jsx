@@ -3,6 +3,7 @@ import { io } from "socket.io-client";
 import { getSpeakerIndex } from "../utils/speakerColors";
 import { fetchOverlaySettings } from "../utils/api";
 import { reportError } from "../utils/errors";
+import { formatDuration, notifyInBackground } from "../utils/notify";
 
 const SocketActionsContext = createContext(null);
 const SessionContext = createContext(null);
@@ -58,6 +59,8 @@ const initialState = {
   activeContext: null,
   nextUtteranceId: 1,
   connectionLost: false,
+  // { limitMs, warnMs, action } for the current recording, null when no limit is set
+  sessionLimit: null,
 };
 
 function newToast(toast) {
@@ -104,6 +107,7 @@ function reducer(state, action) {
           listeningSince,
           pausedElapsed,
           activeContext: null,
+          sessionLimit: null,
         };
       } else if (!state.isListening) {
         // Just started — keep utterances if resuming a selected session
@@ -124,6 +128,7 @@ function reducer(state, action) {
           speakerColorMap: isResume ? state.speakerColorMap : new Map(),
           listeningSince: Date.now(),
           pausedElapsed: 0,
+          sessionLimit: d.limit || null,
         };
       } else if (isPaused && !state.isPaused) {
         // Just paused — accumulate elapsed so far
@@ -148,6 +153,8 @@ function reducer(state, action) {
         pausedElapsed,
       };
     }
+    case "SESSION_LIMIT":
+      return { ...state, sessionLimit: state.isListening ? action.payload : null };
     case "UTTERANCE": {
       const d = action.payload;
       const newMap = new Map(state.speakerColorMap);
@@ -325,7 +332,8 @@ export function SocketProvider({ children }) {
     reconnectCount: state.reconnectCount,
     listeningSince: state.listeningSince,
     pausedElapsed: state.pausedElapsed,
-  }), [state.statusKey, state.statusParams, state.statusClass, state.toasts, state.overlayVisible, state.overlaySettings, state.sessionListVersion, state.reconnectCount, state.listeningSince, state.pausedElapsed]);
+    sessionLimit: state.sessionLimit,
+  }), [state.statusKey, state.statusParams, state.statusClass, state.toasts, state.overlayVisible, state.overlaySettings, state.sessionListVersion, state.reconnectCount, state.listeningSince, state.pausedElapsed, state.sessionLimit]);
 
   useEffect(() => {
     if (!socket.connected && !socket.connecting) socket.connect();
@@ -349,6 +357,12 @@ export function SocketProvider({ children }) {
     socket.on("error", (data) => dispatch({ type: "ERROR", payload: data }));
     // Non-fatal server events (e.g. transcription stream reconnecting) — informational toast only
     socket.on("notice", (data) => dispatch({ type: "TOAST", payload: data }));
+    socket.on("session-limit", (data) => dispatch({ type: "SESSION_LIMIT", payload: data }));
+    socket.on("session-limit-reached", ({ limitMs }) => {
+      const params = { duration: formatDuration(limitMs) };
+      dispatch({ type: "TOAST", payload: { key: "limitStopped", params } });
+      notifyInBackground("limitStopped", params);
+    });
     socket.on("connect", () => dispatch({ type: "CONNECTED" }));
     socket.on("disconnect", (reason) => {
       // We closed it ourselves (unmount/HMR) — not an outage

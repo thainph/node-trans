@@ -3,6 +3,9 @@ import { useSocketActions, useSession, useUI } from "../context/SocketContext";
 import { fetchSettings } from "../utils/api";
 import { CONTEXT_PRESETS } from "../utils/constants";
 import { reportError } from "../utils/errors";
+import { formatDuration } from "../utils/notify";
+
+export { formatDuration };
 
 /*
  * Recording controls shared by the toolbar (start/stop/pause) and the session setup bar
@@ -32,15 +35,6 @@ function activeContext() {
   if (draft.preset === "custom") return draft.custom.trim() || null;
   const preset = CONTEXT_PRESETS.find((p) => p.value === draft.preset);
   return preset && preset.text ? preset.text : null;
-}
-
-export function formatDuration(ms) {
-  const totalSec = Math.floor(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  const pad = (n) => String(n).padStart(2, "0");
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
 /** Mount once (toolbar). Returns recording actions + elapsed time. */
@@ -124,5 +118,8 @@ export function useRecording() {
     setTimeout(() => socket.emit("start-listening", { context }), 200);
   }, [pendingAction, dispatch, socket]);
 
-  return { elapsed, toggle, pauseResume, newMeeting };
+  // +15 min for this recording only (session limit banner)
+  const extendLimit = useCallback(() => socket.emit("extend-session-limit"), [socket]);
+
+  return { elapsed, toggle, pauseResume, newMeeting, extendLimit };
 }

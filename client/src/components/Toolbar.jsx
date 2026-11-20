@@ -9,6 +9,7 @@ import { deleteSession, renameSession } from "../utils/api";
 import { reportError } from "../utils/errors";
 import { ConfirmDialog, PromptDialog } from "./Modal";
 import ExportDialog from "./live/ExportDialog";
+import SessionLimitBanner, { limitPhase } from "./live/SessionLimitBanner";
 
 const ICON = { size: 16, strokeWidth: 1.75 };
 
@@ -21,6 +22,22 @@ function withShortcut(label, id) {
   return s ? `${label} (${s})` : label;
 }
 
+// Small progress ring next to the timer while a session limit is set
+function LimitRing({ fraction, state }) {
+  const c = 2 * Math.PI * 6;
+  const color = state === "over" ? "var(--red)" : state === "warn" ? "var(--orange)" : "var(--label-2)";
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" className="self-center ml-0.5" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" fill="none" stroke="var(--fill-strong)" strokeWidth="2.4" />
+      <circle
+        cx="8" cy="8" r="6" fill="none" stroke={color} strokeWidth="2.4" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(1, fraction))}
+        transform="rotate(-90 8 8)"
+      />
+    </svg>
+  );
+}
+
 // Unified title bar + toolbar. The whole bar is a window drag region in Electron;
 // buttons opt out via the .drag rule in style.css.
 export default function Toolbar({ sidebarOpen, onToggleSidebar, onOpenSettings, onOpenDonate }) {
@@ -28,8 +45,10 @@ export default function Toolbar({ sidebarOpen, onToggleSidebar, onOpenSettings, 
   const { dispatch } = useSocketActions();
   const { isListening, isPaused, pendingAction, selectedSessionId, selectedSessionData } = useSession();
   const { utterances, partialResults } = useTranscript();
-  const { overlayVisible, overlaySettings } = useUI();
-  const { elapsed, toggle, pauseResume, newMeeting } = useRecording();
+  const { overlayVisible, overlaySettings, sessionLimit } = useUI();
+  const { elapsed, toggle, pauseResume, newMeeting, extendLimit } = useRecording();
+  const limit = isListening ? sessionLimit : null;
+  const limitState = limitPhase(limit, elapsed);
 
   const [renameModal, setRenameModal] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -93,6 +112,10 @@ export default function Toolbar({ sidebarOpen, onToggleSidebar, onOpenSettings, 
       {/* Scroll-edge effect: content fades and blurs as it slides under the floating toolbar */}
       <div className="scroll-edge-top absolute inset-x-0 top-0 h-[72px] z-10 pointer-events-none" aria-hidden="true" />
 
+      {limit && (
+        <SessionLimitBanner limit={limit} elapsed={elapsed} onExtend={extendLimit} onStop={toggle} disabled={pendingAction} />
+      )}
+
       <header className={`drag absolute inset-x-0 top-0 z-20 h-[52px] flex items-center gap-2 px-3 ${sidebarOpen ? "" : "traffic-light-pad"}`}>
         <div className="glass-capsule">
           <button
@@ -119,8 +142,16 @@ export default function Toolbar({ sidebarOpen, onToggleSidebar, onOpenSettings, 
 
         {isListening && (
           <div className="glass-capsule">
-            <span className="font-mono tabular-nums text-label text-[13px] pl-3 pr-1" aria-label={t("elapsed")}>
-              {formatDuration(elapsed)}
+            <span className="font-mono tabular-nums text-[13px] pl-3 pr-1 inline-flex items-baseline gap-1" aria-label={t("elapsed")}>
+              <span className={limitState === "over" ? "text-sys-red" : limitState === "warn" ? "text-sys-orange" : "text-label"}>
+                {formatDuration(elapsed)}
+              </span>
+              {limit && (
+                <>
+                  <span className="text-[11px] text-label-3">/ {formatDuration(limit.limitMs)}</span>
+                  <LimitRing fraction={elapsed / limit.limitMs} state={limitState} />
+                </>
+              )}
             </span>
             <button
               className="btn-icon"
